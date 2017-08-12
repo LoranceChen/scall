@@ -51,4 +51,6 @@ object Example extends App {
       println("localPwd" + localPwd)
   }
 
+  //close ssh connection
+  localShell.disconnect()
 }
