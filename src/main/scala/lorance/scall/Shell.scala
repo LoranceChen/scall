@@ -1,7 +1,5 @@
 package lorance.scall
 
-import scala.collection.mutable.ArrayBuffer
-
 case class Auth(host: String, name: String, port: Int, password: String)
 
 object Status extends Enumeration {
