@@ -18,9 +18,7 @@ object Status extends Enumeration {
 case class Shell(auth: Auth,
              parent: Option[Shell] = None
            ) {
-  var bf: ArrayBuffer[Char] = _
-
-  var status = Status.Using //does the shell is under use
+  private var status = Status.Using //is the shell under using
   val jsch: JSchWrapper = parent.map(_.jsch).getOrElse(new JSchWrapper(auth))
 
   /**
@@ -36,7 +34,6 @@ case class Shell(auth: Auth,
 
     val newCmd = s"echo $SPLIT && " + cmd + s" && echo $$? || echo $$? && echo $SPLIT || echo $SPLIT"
     val splited = jsch.scallInputStream.setCommand(newCmd)
-//    println(splited.replace("\n", "=n=").replace("\r", "=r="))
     val onlyDigitsRegex = "^(\\d+)$".r
     val (result, code) = splited match {
       case onlyDigitsRegex(cde)  =>
@@ -45,13 +42,11 @@ case class Shell(auth: Auth,
         (rst, cde.toInt)
     }
 
-//    val code = splited.last.toInt
-//    val result = splited.init.mkString
     if(code == 0) Right(result) else Left(code)
   }
 
   private val newRegex = """(?s).*\r\n(.*)""".r
-  def newShell(auth: Auth): Either[Int, Shell] = { //Either[Int, String] = {
+  def newShell(auth: Auth): Either[Int, Shell] = {
     assert(status == Status.Using, s"current status is $status")
 
     val cmd = s"echo $SPLIT && sshpass -p '${auth.password}' ssh -o StrictHostKeyChecking=no ${auth.name}@${auth.host} -p${auth.port}"
