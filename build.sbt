@@ -2,11 +2,12 @@ import sbt.Credentials
 
 name := "scall"
 
-version := "0.1.4"
+version := "0.1.5"
 
 organization := "com.scalachan"
 
 scalaVersion := "2.12.3"
+crossScalaVersions := Seq("2.11.11", "2.12.3")
 
 libraryDependencies ++= Seq(
   "com.jcraft" % "jsch" % "0.1.54",
@@ -47,7 +48,7 @@ lazy val root = (project in file(".")).
   ).
   settings(
     pomExtra in Global :=
-      <url>https://github.com/LoranceChen/RxSocket</url>
+      <url>https://github.com/LoranceChen/scall</url>
         <licenses>
           <license>
             <name>Apache License, Version 2.0</name>
@@ -56,7 +57,7 @@ lazy val root = (project in file(".")).
         </licenses>
         <scm>
           <url>git@github.com/LoranceChen/RxSocket.git</url>
-          <connection>scm:git:git@github.com/LoranceChen/RxSocket.git</connection>
+          <connection>scm:git:git@github.com/LoranceChen/scall.git</connection>
         </scm>
         <developers>
           <developer>
