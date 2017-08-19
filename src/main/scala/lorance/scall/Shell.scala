@@ -47,7 +47,7 @@ case class Shell(auth: Auth,
   def newShell(auth: Auth): Either[Int, Shell] = {
     assert(status == Status.Using, s"current status is $status")
 
-    val cmd = s"echo $SPLIT && sshpass -p '${auth.password}' ssh -o StrictHostKeyChecking=no ${auth.name}@${auth.host} -p${auth.port}"
+    val cmd = s"echo $SPLIT && TERM=dumb sshpass -p '${auth.password}' ssh -t -o StrictHostKeyChecking=no ${auth.name}@${auth.host} -p ${auth.port}"
     jsch.scallInputStream.setCommandNoRsp(cmd)
 
     val echoCmd = s"echo $$? || echo $$? && echo $SPLIT || echo $SPLIT"
