@@ -20,9 +20,11 @@ class ScallInputStream(outputStream: ScallOutputStream)
   val readCompleteObv = Subject[Unit]()
   val lockRead = new Object()
 
+  //todo release lock if assert fail
   def setCommand(cmd: String) = {
-    assert(!closedMark, "Input Stream has been closed")
     writeSemaphore.acquire()
+
+    assert(!closedMark, "Input Stream has been closed")
 
     this.cmd = cmd.getBytes
     readied = true
@@ -36,11 +38,12 @@ class ScallInputStream(outputStream: ScallOutputStream)
   }
 
   val noRspLock = new Object
-  def setCommandNoRsp(cmd: String) = {
-    assert(!closedMark, "Input Stream has been closed")
 
+  //todo release lock if assert fail
+  def setCommandNoRsp(cmd: String) = {
     //acquire and release should under different thread.
     writeSemaphore.acquire()
+    assert(!closedMark, "Input Stream has been closed")
 
     this.cmd = cmd.getBytes
     readied = true
