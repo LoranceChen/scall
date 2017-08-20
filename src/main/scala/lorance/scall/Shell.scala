@@ -26,13 +26,14 @@ case class Shell(auth: Auth,
     *
     * NOTIC: refer regex: (?s) https://stackoverflow.com/questions/45625134/scala-regex-cant-match-r-n-in-a-giving-string-which-contains-multiple-r-n/45625835#45625835
     */
-  private val regex = """(?s)(.*)\r\n(.*)""".r
+  private val regex = """(?s)(.*)\n(.*)""".r
+  private val onlyDigitsRegex = "^(\\d+)$".r
+
   def exc(cmd: String): Either[Int, String] = {
     assert(status == Status.Using, s"current status is $status")
 
-    val newCmd = s"echo $SPLIT && " + cmd + s" && echo $$? || echo $$? && echo $SPLIT || echo $SPLIT"
+    val newCmd = s"echo '' && echo $SPLIT && " + cmd + s" && echo $$? || echo $$? && echo $SPLIT || echo $SPLIT"
     val splited = jsch.scallInputStream.setCommand(newCmd)
-    val onlyDigitsRegex = "^(\\d+)$".r
     val (result, code) = splited match {
       case onlyDigitsRegex(cde)  =>
         ("", cde.toInt)
@@ -43,14 +44,16 @@ case class Shell(auth: Auth,
     if(code == 0) Right(result) else Left(code)
   }
 
-  private val newRegex = """(?s).*\r\n(.*)""".r
+  private val newRegex = """(?s).*\n(.*)""".r
   def newShell(auth: Auth): Either[Int, Shell] = {
     assert(status == Status.Using, s"current status is $status")
 
-    val cmd = s"echo $SPLIT && TERM=dumb sshpass -p '${auth.password}' ssh -t -o StrictHostKeyChecking=no ${auth.name}@${auth.host} -p ${auth.port}"
+//    val cmd = s"echo $SPLIT && TERM=dumb sshpass -p '${auth.password}' ssh -t -o StrictHostKeyChecking=no ${auth.name}@${auth.host} -p ${auth.port}"
+    val cmd = s"echo '' && echo $SPLIT && sshpass -p '${auth.password}' ssh -T -o StrictHostKeyChecking=no ${auth.name}@${auth.host} -p ${auth.port}"
     jsch.scallInputStream.setCommandNoRsp(cmd)
 
-    val echoCmd = s"echo $$? || echo $$? && echo $SPLIT || echo $SPLIT"
+//    val echoCmd = s"echo $$? || echo $$? && echo $SPLIT || echo $SPLIT"
+    val echoCmd = s"echo 0 && echo $SPLIT || echo $SPLIT"
     val splited = jsch.scallInputStream.setCommand(echoCmd)
 
     val code = splited match {
@@ -73,16 +76,19 @@ case class Shell(auth: Auth,
   def exit(): Either[Int, Shell] = {
     assert(status == Status.Using, s"current status is $status")
     if(parent.isDefined) {
-      val cmd = s"echo $SPLIT && exit"
+      val cmd = s"echo '' && echo $SPLIT && exit"
       jsch.scallInputStream.setCommandNoRsp(cmd)
 
       //todo wait response when send exit cmd
-      Thread.sleep(1000)
+//      Thread.sleep(1000)
       val echoCmd = s"echo $$? || echo $$? && echo $SPLIT || echo $SPLIT"
+//      val echoCmd = s"echo 0 && echo $SPLIT || echo $SPLIT"
       val splited = jsch.scallInputStream.setCommand(echoCmd)
-
+      println("exit-splited - " + splited)
       val code = splited match {
-        case newRegex(cde) =>
+        case onlyDigitsRegex(cde) => //exit success - only print a `echo $?` after `exit`
+          cde.toInt
+        case newRegex(cde) => //maybe `exit` fail and print some message before execute `echo $?`
           cde.toInt
       }
 
