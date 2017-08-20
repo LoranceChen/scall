@@ -26,7 +26,8 @@ sealed class JSchWrapper(auth: Auth) {
 
   import com.jcraft.jsch.ChannelShell
 
-  channel.asInstanceOf[ChannelShell].setPtyType("dumb") // remove special effect, such as color
+//  channel.asInstanceOf[ChannelShell].setPtyType("dumb") // remove special effect, such as color
+  channel.asInstanceOf[ChannelShell].setPty(false)
   // Enable agent-forwarding.
   //((ChannelShell)channel).setAgentForwarding(true);
   channel.setInputStream(scallInputStream)
