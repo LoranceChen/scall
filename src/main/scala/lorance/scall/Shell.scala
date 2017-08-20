@@ -84,7 +84,7 @@ case class Shell(auth: Auth,
       val echoCmd = s"echo $$? || echo $$? && echo $SPLIT || echo $SPLIT"
 //      val echoCmd = s"echo 0 && echo $SPLIT || echo $SPLIT"
       val splited = jsch.scallInputStream.setCommand(echoCmd)
-      println("exit-splited - " + splited)
+//      println("exit-splited - " + splited)
       val code = splited match {
         case onlyDigitsRegex(cde) => //exit success - only print a `echo $?` after `exit`
           cde.toInt

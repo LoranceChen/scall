@@ -85,6 +85,8 @@ class ScallInputStream(outputStream: ScallOutputStream)
       rst = '\n'
       curIndex += 1
     }
+
+//    print(rst.toChar.toString)
     rst
   }
 
