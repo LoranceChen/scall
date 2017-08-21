@@ -1,4 +1,5 @@
 import com.jcraft.jsch.Channel;
+import com.jcraft.jsch.ChannelShell;
 import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.Session;
 
@@ -8,9 +9,9 @@ public class JShellTest {
             JSch jsch=new JSch();
 
             //jsch.setKnownHosts("/home/foo/.ssh/known_hosts");
-            Session session=jsch.getSession("lorance", "192.168.1.230", 22);
+            Session session=jsch.getSession("lorancechen", "192.168.1.149", 22);
 
-            session.setPassword("1");
+            session.setPassword(" ");
             session.setConfig("StrictHostKeyChecking", "no");
 
             //session.connect();
@@ -19,9 +20,10 @@ public class JShellTest {
             Channel channel=session.openChannel("shell");
 
             // Enable agent-forwarding.
-            //((ChannelShell)channel).setAgentForwarding(true);
+            ((ChannelShell)channel).setPty(false);
             channel.setInputStream(System.in);
             channel.setOutputStream(System.out);
+            channel.setExtOutputStream(System.out);
 
             channel.connect(60*1000);
         }
