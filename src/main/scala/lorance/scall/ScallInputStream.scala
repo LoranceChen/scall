@@ -9,7 +9,7 @@ import rx.lang.scala.Subject
   * send cmd
   */
 class ScallInputStream(outputStream: ScallOutputStream)
-                      (implicit writeSemaphore: Semaphore, writeLock: WriteLock) extends InputStream {
+                      (writeSemaphore: Semaphore, writeLock: WriteLock) extends InputStream {
   private var readied = false
   private var cmd: Array[Byte] = Array.emptyByteArray
   private var curIndex = 0
@@ -20,11 +20,19 @@ class ScallInputStream(outputStream: ScallOutputStream)
   val readCompleteObv = Subject[Unit]()
   val lockRead = new Object()
 
-  //todo release lock if assert fail
-  def setCommand(cmd: String) = {
-    writeSemaphore.acquire()
+  /**
+    * make sure `setCommandMultiTimes` is atomic
+    */
+  val methodLock = new Object
 
-    assert(!closedMark, "Input Stream has been closed")
+  val noRspLock = new Object
+
+  def setCommand(cmd: String) = methodLock.synchronized {
+    writeSemaphore.acquire()
+    assert(!closedMark, {
+      writeSemaphore.release()
+      "Input Stream has been closed"
+    })
 
     this.cmd = cmd.getBytes
     readied = true
@@ -37,13 +45,14 @@ class ScallInputStream(outputStream: ScallOutputStream)
     curResult
   }
 
-  val noRspLock = new Object
-
-  //todo release lock if assert fail
-  def setCommandNoRsp(cmd: String) = {
+  def setCommandNoRsp(cmd: String) = methodLock.synchronized {
     //acquire and release should under different thread.
     writeSemaphore.acquire()
-    assert(!closedMark, "Input Stream has been closed")
+
+    assert(!closedMark, {
+      writeSemaphore.release()
+      "Input Stream has been closed"
+    })
 
     this.cmd = cmd.getBytes
     readied = true
@@ -61,6 +70,28 @@ class ScallInputStream(outputStream: ScallOutputStream)
     noRspLock.synchronized(noRspLock.wait())
   }
 
+  /**
+    * send command at least once.
+    * NOTICE: make sure it is non effect
+    * @param cmd
+    * @return
+    */
+  def setCommandMultiTimes(cmd: String) = methodLock.synchronized {
+    var needResend = true
+    var rst: String = ""
+
+    outputStream.outputObv.first.subscribe(msg => {
+      needResend = false
+      rst = msg
+    })
+
+    while (needResend) {
+      setCommandNoRsp(cmd)
+      Thread.sleep(1)
+    }
+
+    rst
+  }
 
   override def read: Int =  {
     var rst: Int = -1

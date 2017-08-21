@@ -12,11 +12,11 @@ sealed class JSchWrapper(auth: Auth) {
   private val jsch = new JSch()
   private val session: Session = jsch.getSession(auth.name, auth.host, auth.port)
 
-  private implicit val writeLock = WriteLock()
-  private implicit val writeSemaphore = new Semaphore(1)
+  private val writeLock = WriteLock()
+  private val writeSemaphore = new Semaphore(1)
 
-  val scallOutputStream = new ScallOutputStream
-  val scallInputStream = new ScallInputStream(scallOutputStream)
+  val scallOutputStream = new ScallOutputStream(writeLock)
+  val scallInputStream = new ScallInputStream(scallOutputStream)(writeSemaphore, writeLock)
 
   session.setPassword(auth.password)
   session.setConfig("StrictHostKeyChecking", "no")
