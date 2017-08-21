@@ -15,7 +15,8 @@ class ReaderDispatch(load: ArrayBuffer[Byte], var state: DspState.Value) {
 
   private var debugIndex = 0
   private var cmpIndex = 0
-  private val spltLength = MAGIC_SPLIT.length
+  private val spltBeginLength = MAGIC_SPLIT_BEGIN.length
+  private val spltEndLength = MAGIC_SPLIT_END.length
 
   def this() {
     this(ArrayBuffer.empty[Byte], DspState.BeginSplit)
@@ -34,24 +35,24 @@ class ReaderDispatch(load: ArrayBuffer[Byte], var state: DspState.Value) {
     state match {
       case DspState.BeginSplit =>
         //is match
-        if(MAGIC_SPLIT(cmpIndex) == item) {
+        if(MAGIC_SPLIT_BEGIN(cmpIndex) == item) {
           cmpIndex += 1
           //is complete compare
-          if(cmpIndex == spltLength) {
+          if(cmpIndex == spltBeginLength) {
             state = DspState.Load
             cmpIndex = 0
           }
         } else { //set cmpIndex eq 0 except item eq MAGIC_SPLIT(0)
           cmpIndex = 0
-          if(MAGIC_SPLIT(cmpIndex) == item) {cmpIndex += 1}
+          if(MAGIC_SPLIT_BEGIN(cmpIndex) == item) {cmpIndex += 1}
         }
 
       case DspState.Load =>
 
         //save to load until bytes too large(NOT setting yet) when settings or achieve EndSplit
-        if(MAGIC_SPLIT(cmpIndex) != item) {
+        if(MAGIC_SPLIT_END(cmpIndex) != item) {
           if(cmpIndex > 0) {
-            load.append(MAGIC_SPLIT.substring(0, cmpIndex).toCharArray.map(_.toByte): _*)
+            load.append(MAGIC_SPLIT_END.substring(0, cmpIndex).toCharArray.map(_.toByte): _*)
             cmpIndex = 0
           }
           load.append(bt)
@@ -59,7 +60,7 @@ class ReaderDispatch(load: ArrayBuffer[Byte], var state: DspState.Value) {
         } else {
           cmpIndex += 1
           //achieve EndSplit
-          if(cmpIndex == spltLength) {
+          if(cmpIndex == spltEndLength) {
             state = DspState.EndSplit
           }
         }
