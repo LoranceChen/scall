@@ -16,6 +16,7 @@ sealed class JSchWrapper(auth: Auth) {
   private val writeSemaphore = new Semaphore(1)
 
   val scallOutputStream = new ScallOutputStream(writeLock)
+  val scallErrorStream = new ScallErrorStream()
   val scallInputStream = new ScallInputStream(scallOutputStream)(writeSemaphore, writeLock)
 
   session.setPassword(auth.password)
@@ -32,6 +33,7 @@ sealed class JSchWrapper(auth: Auth) {
   //((ChannelShell)channel).setAgentForwarding(true);
   channel.setInputStream(scallInputStream)
   channel.setOutputStream(scallOutputStream)
+  channel.setExtOutputStream(scallErrorStream)
 
   channel.connect(60 * 1000)
 
