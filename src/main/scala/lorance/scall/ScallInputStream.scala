@@ -87,7 +87,7 @@ class ScallInputStream(outputStream: ScallOutputStream)
 
     while (needResend) {
       setCommandNoRsp(cmd)
-      Thread.sleep(1)
+      Thread.sleep(15)
     }
 
     rst
