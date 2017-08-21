@@ -8,6 +8,8 @@ object Status extends Enumeration {
   val Dropped = Value(3, "Dropped")
 }
 
+case class Error(code: Int, msg: String)
+class ShellLock //Shell public method should be mutex
 /**
   * with shell streaming, there should define a unique echo string to warp response information to distinct other info from response stream,
   * that means, e.g. If I want execute `pwd`, so I should send a command string with `echo uniqueStr && pwd && echo uniqueStr || echo uniqueStr`
@@ -15,7 +17,7 @@ object Status extends Enumeration {
   */
 case class Shell(auth: Auth,
              parent: Option[Shell] = None
-           ) {
+           )(implicit lock: ShellLock = new ShellLock) {
   private var status = Status.Using //is the shell under using
   val jsch: JSchWrapper = parent.map(_.jsch).getOrElse(new JSchWrapper(auth))
 
@@ -29,81 +31,84 @@ case class Shell(auth: Auth,
   private val regex = """(?s)(.*)\n(.*)""".r
   private val onlyDigitsRegex = "^(\\d+)$".r
 
-  def exc(cmd: String): Either[Int, String] = {
+  def exc(cmd: String): Either[Error, String] = lock.synchronized {
     assert(status == Status.Using, s"current status is $status")
 
-    val newCmd = s"echo '' && echo $SPLIT && " + cmd + s" && echo $$? || echo $$? && echo $SPLIT || echo $SPLIT"
-    val splited = jsch.scallInputStream.setCommand(newCmd)
-    val (result, code) = splited match {
+    val newCmd = s"echo '' && echo $SPLIT_BEGIN && " + cmd + s" && echo $$? || echo $$? && echo $SPLIT_END || echo $SPLIT_END"
+    val split = jsch.scallInputStream.setCommand(newCmd)
+    val (result, code) = split match {
       case onlyDigitsRegex(cde)  =>
         ("", cde.toInt)
       case regex(rst, cde) =>
         (rst, cde.toInt)
     }
 
-    if(code == 0) Right(result) else Left(code)
+    val errorMsg = jsch.scallErrorStream.flashErrorMsg
+    if(code == 0) Right(result) else Left(Error(code, errorMsg))
   }
 
-  private val newRegex = """(?s).*\n(.*)""".r
-  def newShell(auth: Auth): Either[Int, Shell] = {
+//  private val newRegex = """(?s).*\n(.*)""".r
+  def newShell(auth: Auth): Either[Error, Shell] = lock.synchronized {
     assert(status == Status.Using, s"current status is $status")
 
 //    val cmd = s"echo $SPLIT && TERM=dumb sshpass -p '${auth.password}' ssh -t -o StrictHostKeyChecking=no ${auth.name}@${auth.host} -p ${auth.port}"
-    val cmd = s"echo '' && echo $SPLIT && sshpass -p '${auth.password}' ssh -T -o StrictHostKeyChecking=no ${auth.name}@${auth.host} -p ${auth.port}"
+//    val cmd = s"echo '' && echo $SPLIT_BEGIN && sshpass -p '${auth.password}' ssh -T -o StrictHostKeyChecking=no ${auth.name}@${auth.host} -p ${auth.port}"
+    val cmd = s"echo '' && echo $SPLIT_BEGIN && sshpass -p '${auth.password}' ssh ${auth.name}@${auth.host} -p ${auth.port}"
     jsch.scallInputStream.setCommandNoRsp(cmd)
 
-//    val echoCmd = s"echo $$? || echo $$? && echo $SPLIT || echo $SPLIT"
-    val echoCmd = s"echo 0 && echo $SPLIT || echo $SPLIT"
-    val splited = jsch.scallInputStream.setCommand(echoCmd)
+    val echoCmd = s"echo $$? || echo $$? && echo $SPLIT_END || echo $SPLIT_END"
+    val split = jsch.scallInputStream.setCommand(echoCmd)
 
-    val code = splited match {
-      case newRegex(cde) =>
-        cde.toInt
+    val (_, code) = split match {
+      case onlyDigitsRegex(cde) => //only print a `echo $?` after `exit`
+        ("", cde.toInt)
+      case regex(rst, cde) =>
+        (rst, cde.toInt)
     }
+
+    val errorMsg = jsch.scallErrorStream.flashErrorMsg
 
     if(code == 0) {
       status = Status.BackEnd
-      Right(Shell(auth, Some(this)))
+      Right(Shell(auth, Some(this))(this.lock))
     } else
-      Left(code)
+      Left(Error(code, errorMsg))
   }
 
   /**
     * exit current shell
     * @return
-    *
     */
-  def exit(): Either[Int, Shell] = {
+  def exit(): Either[Error, Shell] = lock.synchronized {
     assert(status == Status.Using, s"current status is $status")
     if(parent.isDefined) {
-      val cmd = s"echo '' && echo $SPLIT && exit"
+      val cmd = s"echo '' && echo $SPLIT_BEGIN && exit"
       jsch.scallInputStream.setCommandNoRsp(cmd)
 
-      //todo wait response when send exit cmd
-//      Thread.sleep(1000)
-      val echoCmd = s"echo $$? || echo $$? && echo $SPLIT || echo $SPLIT"
-//      val echoCmd = s"echo 0 && echo $SPLIT || echo $SPLIT"
-      val splited = jsch.scallInputStream.setCommand(echoCmd)
-//      println("exit-splited - " + splited)
-      val code = splited match {
+      val echoCmd = s"echo $$? || echo $$? && echo $SPLIT_END || echo $SPLIT_END"
+      val split = jsch.scallInputStream.setCommandMultiTimes(echoCmd)
+
+      val (_, code) = split match {
         case onlyDigitsRegex(cde) => //exit success - only print a `echo $?` after `exit`
-          cde.toInt
-        case newRegex(cde) => //maybe `exit` fail and print some message before execute `echo $?`
-          cde.toInt
+          ("", cde.toInt)
+        case regex(rst, cde) => //maybe `exit` fail and print some message before execute `echo $?`
+          (rst, cde.toInt)
       }
+
+      val errorMsg = jsch.scallErrorStream.flashErrorMsg
 
       if (code == 0) {
         status = Status.Dropped
         parent.get.status = Status.Using
         Right(parent.get)
       } else
-        Left(code)
+        Left(Error(code, errorMsg))
     } else {
       throw new Exception("root Shell env can't exit, use disconnect if you want close")
     }
   }
 
-  def disconnect() = {
+  def disconnect() = lock.synchronized {
     jsch.close()
   }
 }
