@@ -13,7 +13,7 @@ class ScallOutputStream(writeLock: WriteLock) extends OutputStream {
   val outputObv: Observable[String] = outputSub
 
   override def write(b: Int): Unit = {
-    print(b.toChar.toString)
+//    print(b.toChar.toString)
 
     readerDispatch.appendMsg(b.toByte).foreach(x => {
       outputSub.onNext(x)
