@@ -29,7 +29,6 @@ class ReaderDispatch(load: ArrayBuffer[Byte], var state: DspState.Value) {
     */
   def appendMsg(bt: Byte): Option[String] = {
     val item = bt.toChar
-    def newItem = if(item == '\r') "\\r" else if(item == '\n') "\\n" else item
 
     debugIndex += 1
     state match {
