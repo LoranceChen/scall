@@ -24,7 +24,7 @@ object Status extends Enumeration {
 case class Error(code: Int, msg: String)
 class ShellLock //Shell public method should be mutex
 
-case class Config(connectTimeout: Int, //second
+case class Config(connectTimeout: Int //second
                  )
 /**
   * with shell streaming, there should define a unique echo string to warp response information to distinct other info from response stream,
