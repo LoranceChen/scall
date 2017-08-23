@@ -9,7 +9,7 @@ case class WriteLock()
 /**
   *
   */
-sealed class JSchWrapper(auth: Auth) {
+sealed class JSchWrapper(auth: Auth, config: Config) {
   private val jsch = new JSch()
   private val session: Session = jsch.getSession(auth.name, auth.host, auth.port)
 
@@ -28,7 +28,7 @@ sealed class JSchWrapper(auth: Auth) {
   }
 
   session.setConfig("StrictHostKeyChecking", "no")
-  session.connect(30000) // making a connection with timeout.
+  session.connect(config.connectTimeout) // making a connection with timeout.
 
   private val channel: Channel = session.openChannel("shell")
 
@@ -42,7 +42,7 @@ sealed class JSchWrapper(auth: Auth) {
   channel.setOutputStream(scallOutputStream)
   channel.setExtOutputStream(scallErrorStream)
 
-  channel.connect(60 * 1000)
+  channel.connect(config.connectTimeout)
 
   def close() = {
     scallInputStream.close()

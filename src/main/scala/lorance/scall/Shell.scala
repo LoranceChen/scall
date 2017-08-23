@@ -24,6 +24,8 @@ object Status extends Enumeration {
 case class Error(code: Int, msg: String)
 class ShellLock //Shell public method should be mutex
 
+case class Config(connectTimeout: Int, //second
+                 )
 /**
   * with shell streaming, there should define a unique echo string to warp response information to distinct other info from response stream,
   * that means, e.g. If I want execute `pwd`, so I should send a command string with `echo uniqueStr && pwd && echo uniqueStr || echo uniqueStr`
@@ -31,9 +33,9 @@ class ShellLock //Shell public method should be mutex
   */
 case class Shell(auth: Auth,
              parent: Option[Shell] = None
-           )(implicit lock: ShellLock = new ShellLock) {
+           )(implicit lock: ShellLock = new ShellLock, config: Config = Config(10)) {
   private var status = Status.Using //is the shell under using
-  val jsch: JSchWrapper = parent.map(_.jsch).getOrElse(new JSchWrapper(auth))
+  val jsch: JSchWrapper = parent.map(_.jsch).getOrElse(new JSchWrapper(auth, config))
 
   private val regex = """(?s)(.*)\n(.*)""".r
   private val onlyDigitsRegex = "^(\\d+)$".r
@@ -62,6 +64,7 @@ case class Shell(auth: Auth,
   }
 
 //  private val newRegex = """(?s).*\n(.*)""".r
+  //todo catch error such as network disconnect form new shell and notify Shell class to forbid current Shell and exit to parent automatic.
   def newShell(auth: Auth): Either[Error, Shell] = lock.synchronized {
     assert(status == Status.Using, s"current status is $status")
 
@@ -69,9 +72,9 @@ case class Shell(auth: Auth,
 //    val cmd = s"echo '' && echo $SPLIT_BEGIN && sshpass -p '${auth.password}' ssh -T -o StrictHostKeyChecking=no ${auth.name}@${auth.host} -p ${auth.port}"
     val cmd = auth.key match {
       case Password(password) =>
-        s"echo '' && echo $SPLIT_BEGIN && sshpass -p '$password' ssh -T -o StrictHostKeyChecking=no ${auth.name}@${auth.host} -p ${auth.port}"
+        s"echo '' && echo $SPLIT_BEGIN && sshpass -p '$password' ssh -T -o StrictHostKeyChecking=no -o ConnectTimeout=${config.connectTimeout} ${auth.name}@${auth.host} -p ${auth.port}"
       case IdentityFile(filePath) =>
-        s"echo '' && echo $SPLIT_BEGIN && ssh -T -o StrictHostKeyChecking=no -i '$filePath' ${auth.name}@${auth.host} -p ${auth.port}"
+        s"echo '' && echo $SPLIT_BEGIN && ssh -T -o StrictHostKeyChecking=no -o ConnectTimeout=5 -o ServerAliveInterval=${config.connectTimeout} -i '$filePath' ${auth.name}@${auth.host} -p ${auth.port}"
     }
 
     jsch.scallInputStream.setCommandNoRsp(cmd)
