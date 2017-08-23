@@ -28,7 +28,7 @@ sealed class JSchWrapper(auth: Auth, config: Config) {
   }
 
   session.setConfig("StrictHostKeyChecking", "no")
-  session.connect(config.connectTimeout) // making a connection with timeout.
+  session.connect(config.connectTimeout * 1000) // making a connection with timeout.
 
   private val channel: Channel = session.openChannel("shell")
 
@@ -42,7 +42,7 @@ sealed class JSchWrapper(auth: Auth, config: Config) {
   channel.setOutputStream(scallOutputStream)
   channel.setExtOutputStream(scallErrorStream)
 
-  channel.connect(config.connectTimeout)
+  channel.connect(config.connectTimeout * 1000)
 
   def close() = {
     scallInputStream.close()
