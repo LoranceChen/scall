@@ -9,3 +9,6 @@ Shell is worse on organize command together. Scall is not replace Shell, rather 
 
 ## Example
 [Example.scala](https://github.com/LoranceChen/scall/blob/master/src/test/scala/Example.scala)
+
+## TODO
+- replace `assert` to exception.

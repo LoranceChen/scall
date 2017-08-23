@@ -1,11 +1,11 @@
-import lorance.scall.{Auth, Shell}
+import lorance.scall.{Auth, Password, Shell}
 
 /**
   *
   */
 object Example extends App {
   //connect a local ssh
-  val localShell = Shell(Auth("localhost", "username", 22, "xxxxxx"))
+  val localShell = Shell(Auth("localhost", "username", 22, Password("xxxxxx")))
 
   //simple command
   val pwd = localShell.exc("pwd")
@@ -27,7 +27,7 @@ object Example extends App {
 
   //advanced
   // 1. login another shell based on current shell which use sshpass -p 'pwd' ssh host@addr
-  val remoteShell = localShell.newShell(Auth("192.168.1.149", "username", 22, "xxxxxx"))
+  val remoteShell = localShell.newShell(Auth("192.168.1.149", "username", 22, Password("xxxxxx")))
 
   remoteShell match {
     case Left(code) =>

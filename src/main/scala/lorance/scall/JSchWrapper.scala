@@ -5,6 +5,7 @@ import java.util.concurrent.Semaphore
 import com.jcraft.jsch.{Channel, JSch, Session}
 
 case class WriteLock()
+
 /**
   *
   */
@@ -19,7 +20,13 @@ sealed class JSchWrapper(auth: Auth) {
   val scallErrorStream = new ScallErrorStream()
   val scallInputStream = new ScallInputStream(scallOutputStream)(writeSemaphore, writeLock)
 
-  session.setPassword(auth.password)
+  auth.key match {
+    case Password(value) =>
+      session.setPassword(value)
+    case IdentityFile(path) => //todo: Is addIdentity before getSession?
+      jsch.addIdentity(path)
+  }
+
   session.setConfig("StrictHostKeyChecking", "no")
   session.connect(30000) // making a connection with timeout.
 

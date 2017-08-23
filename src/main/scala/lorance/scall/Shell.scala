@@ -1,6 +1,19 @@
 package lorance.scall
 
-case class Auth(host: String, name: String, port: Int, password: String)
+trait Key
+case class Password(value: String) extends Key
+case class IdentityFile(path: String) extends Key
+
+case class Auth(host: String, name: String, port: Int, key: Key)
+
+class Cmd(val content: String)
+
+object Cmd {
+  def apply(content: String) = new Cmd(content)
+  implicit def toCmd(cmd: String) = Cmd(cmd)
+}
+
+class MarkCmd(override val content: String) extends Cmd(content)
 
 object Status extends Enumeration {
   val BackEnd = Value(1, "BackEnd")
@@ -10,6 +23,7 @@ object Status extends Enumeration {
 
 case class Error(code: Int, msg: String)
 class ShellLock //Shell public method should be mutex
+
 /**
   * with shell streaming, there should define a unique echo string to warp response information to distinct other info from response stream,
   * that means, e.g. If I want execute `pwd`, so I should send a command string with `echo uniqueStr && pwd && echo uniqueStr || echo uniqueStr`
@@ -21,6 +35,9 @@ case class Shell(auth: Auth,
   private var status = Status.Using //is the shell under using
   val jsch: JSchWrapper = parent.map(_.jsch).getOrElse(new JSchWrapper(auth))
 
+  private val regex = """(?s)(.*)\n(.*)""".r
+  private val onlyDigitsRegex = "^(\\d+)$".r
+
   /**
     * a command could result with a string and
     * @param cmd
@@ -28,13 +45,10 @@ case class Shell(auth: Auth,
     *
     * NOTIC: refer regex: (?s) https://stackoverflow.com/questions/45625134/scala-regex-cant-match-r-n-in-a-giving-string-which-contains-multiple-r-n/45625835#45625835
     */
-  private val regex = """(?s)(.*)\n(.*)""".r
-  private val onlyDigitsRegex = "^(\\d+)$".r
-
-  def exc(cmd: String): Either[Error, String] = lock.synchronized {
+  def exc(cmd: Cmd): Either[Error, String] = lock.synchronized {
     assert(status == Status.Using, s"current status is $status")
 
-    val newCmd = s"echo '' && echo $SPLIT_BEGIN && " + cmd + s" && echo $$? || echo $$? && echo $SPLIT_END || echo $SPLIT_END"
+    val newCmd = s"echo '' && echo $SPLIT_BEGIN && " + cmd.content + s" && echo $$? || echo $$? && echo $SPLIT_END || echo $SPLIT_END"
     val split = jsch.scallInputStream.setCommand(newCmd)
     val (result, code) = split match {
       case onlyDigitsRegex(cde)  =>
@@ -53,7 +67,13 @@ case class Shell(auth: Auth,
 
 //    val cmd = s"echo $SPLIT && TERM=dumb sshpass -p '${auth.password}' ssh -t -o StrictHostKeyChecking=no ${auth.name}@${auth.host} -p ${auth.port}"
 //    val cmd = s"echo '' && echo $SPLIT_BEGIN && sshpass -p '${auth.password}' ssh -T -o StrictHostKeyChecking=no ${auth.name}@${auth.host} -p ${auth.port}"
-    val cmd = s"echo '' && echo $SPLIT_BEGIN && sshpass -p '${auth.password}' ssh ${auth.name}@${auth.host} -p ${auth.port}"
+    val cmd = auth.key match {
+      case Password(password) =>
+        s"echo '' && echo $SPLIT_BEGIN && sshpass -p '$password' ssh -T -o StrictHostKeyChecking=no ${auth.name}@${auth.host} -p ${auth.port}"
+      case IdentityFile(filePath) =>
+        s"echo '' && echo $SPLIT_BEGIN && ssh -T -o StrictHostKeyChecking=no -i '$filePath' ${auth.name}@${auth.host} -p ${auth.port}"
+    }
+
     jsch.scallInputStream.setCommandNoRsp(cmd)
 
     val echoCmd = s"echo $$? || echo $$? && echo $SPLIT_END || echo $SPLIT_END"
