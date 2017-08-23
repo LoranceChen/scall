@@ -6,11 +6,18 @@ case class IdentityFile(path: String) extends Key
 
 case class Auth(host: String, name: String, port: Int, key: Key)
 
-class Cmd(val content: String)
+case class Cmd(content: String)
 
-object Cmd {
-  def apply(content: String) = new Cmd(content)
-  implicit def toCmd(cmd: String) = Cmd(cmd)
+/**
+  * append a flag for cmd
+  * @param cmd
+  */
+case class CmdFlow(cmd: Cmd, isExclude: Boolean = false) {
+  def exclude = CmdFlow(cmd, true)
+}
+
+case class ContextCmdFlow(f: Option[String] => CmdFlow) extends (Option[String] => CmdFlow) {
+  override def apply(v1: Option[String]) = f(v1)
 }
 
 class MarkCmd(override val content: String) extends Cmd(content)
@@ -29,7 +36,6 @@ case class Config(connectTimeout: Int //second
 /**
   * with shell streaming, there should define a unique echo string to warp response information to distinct other info from response stream,
   * that means, e.g. If I want execute `pwd`, so I should send a command string with `echo uniqueStr && pwd && echo uniqueStr || echo uniqueStr`
-  *
   */
 case class Shell(auth: Auth,
              parent: Option[Shell] = None
@@ -64,7 +70,7 @@ case class Shell(auth: Auth,
   }
 
 //  private val newRegex = """(?s).*\n(.*)""".r
-  //todo catch error such as network disconnect form new shell and notify Shell class to forbid current Shell and exit to parent automatic.
+//  todo catch error such as network disconnect form new shell and notify Shell class to forbid current Shell and exit to parent automatic.
   //    use heartbeat at the library rather then use -o ServerAliveInterval=30
   def newShell(auth: Auth): Either[Error, Shell] = lock.synchronized {
     assert(status == Status.Using, s"current status is $status")
@@ -129,6 +135,32 @@ case class Shell(auth: Auth,
         Left(Error(code, errorMsg))
     } else {
       throw new Exception("root Shell env can't exit, use disconnect if you want close")
+    }
+  }
+
+  /**
+    * NOTICE: Stream result will not be evolute immediate
+    * @param cmds: former command result => the Cmd
+    * @return
+    */
+  def excBatch(cmds: ContextCmdFlow*): Stream[Either[Error, String]] = {
+    var formerResult: Option[String] = None
+    var index = -1
+    cmds.toStream.map{cmdFlow =>
+      index += 1
+      val cmdFlowRst = cmdFlow(formerResult)
+      val cmdResult = exc(cmdFlowRst.cmd)
+      cmdResult match {
+        case right @ Right(load) =>
+          formerResult = Some(load)
+          right
+        case left @ Left(error) =>
+          if(cmdFlowRst.isExclude) {
+            formerResult = None
+            left
+          }
+          else throw ExcBatchFailException(error, cmdFlowRst.cmd, index)
+      }
     }
   }
 

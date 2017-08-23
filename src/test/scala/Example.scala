@@ -1,5 +1,5 @@
-import lorance.scall.{Auth, Password, Shell}
-
+import lorance.scall.{Auth, ContextCmdFlow, Password, Shell}
+import lorance.scall.Implicit._
 /**
   *
   */
@@ -50,6 +50,23 @@ object Example extends App {
       val localPwd = localShell.exc("pwd")
       println("localPwd" + localPwd)
   }
+
+  //excBatch
+  println("============================================================")
+  println("===================execute batch command====================")
+  println("============================================================")
+  val rst = localShell.excBatch(
+    "cd /var",
+    "ls",
+    "lll".exclude, //ignore fail if fail
+    "pwd",
+    (former: Option[String]) => s"cd ${former.get}", // former result influence current command.
+    "pwd",
+    "lll", //throw exception
+    "echo 'heheda'"
+  )
+
+  rst.foreach(println)
 
   //close ssh connection
   localShell.disconnect()
