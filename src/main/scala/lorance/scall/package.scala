@@ -1,5 +1,7 @@
 package lorance
 
+import scala.util.control.NonFatal
+
 /**
   * scall Global constants and util method
   */
@@ -34,7 +36,6 @@ package object scall {
 
   /**
     * print command result
-    *
     */
   //do some action by default
 //  def doPrint(cmdResult: Either[Error, String])(implicit rst: String => String = x => x) = {
@@ -43,4 +44,14 @@ package object scall {
     cmdResult
   }
 
+  def loan[T](shell: Shell)(f: Shell => T) = {
+    try {
+      f(shell)
+    } catch {
+      case NonFatal(e) => throw e
+    } finally {
+      shell.disconnect()
+    }
+
+  }
 }

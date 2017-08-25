@@ -1,18 +1,29 @@
-import sbt.Credentials
+import aether.AetherKeys._
+
+logLevel in aetherDeploy := Level.Info
 
 name := "scall"
 
-version := "0.1.5"
+version := "0.2.10"
 
 organization := "com.scalachan"
 
-scalaVersion := "2.12.3"
-crossScalaVersions := Seq("2.11.11", "2.12.3")
+scalaVersion := "2.10.6"
+crossScalaVersions := Seq("2.10.6", "2.11.11", "2.12.3")
 
 libraryDependencies ++= Seq(
   "com.jcraft" % "jsch" % "0.1.54",
   "io.reactivex" %% "rxscala" % "0.26.5"
 )
+
+sonatypeProfileName := "com.scalachan"
+
+overridePublishSettings
+
+enablePlugins(SignedAetherPlugin)
+
+disablePlugins(AetherPlugin)
+
 
 publishTo := {
   val nexus = "https://oss.sonatype.org/"
@@ -32,7 +43,6 @@ lazy val commonPublishSettings = Seq (
   credentials += Credentials(Path.userHome / ".ivy2" / ".new_card"),
 
 )
-
 
 lazy val root = (project in file(".")).
   settings(commonPublishSettings).
@@ -56,7 +66,7 @@ lazy val root = (project in file(".")).
           </license>
         </licenses>
         <scm>
-          <url>git@github.com/LoranceChen/RxSocket.git</url>
+          <url>git@github.com/LoranceChen/scall.git</url>
           <connection>scm:git:git@github.com/LoranceChen/scall.git</connection>
         </scm>
         <developers>
@@ -68,4 +78,3 @@ lazy val root = (project in file(".")).
         </developers>
 
   )
-

@@ -25,6 +25,7 @@ sealed class JSchWrapper(auth: Auth, config: Config) {
       session.setPassword(value)
     case IdentityFile(path) => //todo: Is addIdentity before getSession?
       jsch.addIdentity(path)
+    case _ => Unit
   }
 
   session.setConfig("StrictHostKeyChecking", "no")

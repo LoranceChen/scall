@@ -3,6 +3,7 @@ package lorance.scall
 trait Key
 case class Password(value: String) extends Key
 case class IdentityFile(path: String) extends Key
+case class NonKey() extends Key
 
 case class Auth(host: String, name: String, port: Int, key: Key)
 
@@ -53,12 +54,32 @@ case class Shell(auth: Auth,
     *
     * NOTIC: refer regex: (?s) https://stackoverflow.com/questions/45625134/scala-regex-cant-match-r-n-in-a-giving-string-which-contains-multiple-r-n/45625835#45625835
     */
+//  def exc(cmd: Cmd): Either[Error, String] = lock.synchronized {
+//    assert(status == Status.Using, s"current status is $status")
+//
+//    val newCmd = s"echo '' && echo $SPLIT_BEGIN && " + cmd.content + s" && echo $$? || echo $$? && echo $SPLIT_END || echo $SPLIT_END"
+//    val split = jsch.scallInputStream.setCommand(newCmd)
+//    val (result, code) = split match {
+//      case onlyDigitsRegex(cde)  =>
+//        ("", cde.toInt)
+//      case regex(rst, cde) =>
+//        (rst, cde.toInt)
+//    }
+//
+//    val errorMsg = jsch.scallErrorStream.flashErrorMsg
+//    if(code == 0) Right(result) else Left(Error(code, errorMsg))
+//  }
+
   def exc(cmd: Cmd): Either[Error, String] = lock.synchronized {
     assert(status == Status.Using, s"current status is $status")
 
-    val newCmd = s"echo '' && echo $SPLIT_BEGIN && " + cmd.content + s" && echo $$? || echo $$? && echo $SPLIT_END || echo $SPLIT_END"
-    val split = jsch.scallInputStream.setCommand(newCmd)
-    val (result, code) = split match {
+    val newCmd = s"echo '' && echo $SPLIT_BEGIN && " + cmd.content
+    jsch.scallInputStream.setCommandNoRsp(newCmd)
+
+    val newCmd2 =  s"echo $$? || echo $$? && echo $SPLIT_END || echo $SPLIT_END"
+    val split2 = jsch.scallInputStream.setCommand(newCmd2)
+
+    val (result, code) = split2 match {
       case onlyDigitsRegex(cde)  =>
         ("", cde.toInt)
       case regex(rst, cde) =>
@@ -68,6 +89,10 @@ case class Shell(auth: Auth,
     val errorMsg = jsch.scallErrorStream.flashErrorMsg
     if(code == 0) Right(result) else Left(Error(code, errorMsg))
   }
+
+//  def sudo(cmd: Cmd): Either[Error, String] = lock.synchronized {
+//    excSplit(Cmd("sudo " + cmd.content))
+//  }
 
 //  private val newRegex = """(?s).*\n(.*)""".r
 //  todo catch error such as network disconnect form new shell and notify Shell class to forbid current Shell and exit to parent automatic.
@@ -82,6 +107,8 @@ case class Shell(auth: Auth,
         s"echo '' && echo $SPLIT_BEGIN && sshpass -p '$password' ssh -o StrictHostKeyChecking=no -o ConnectTimeout=${config.connectTimeout} ${auth.name}@${auth.host} -p ${auth.port}"
       case IdentityFile(filePath) =>
         s"echo '' && echo $SPLIT_BEGIN && ssh -o StrictHostKeyChecking=no -o ConnectTimeout=${config.connectTimeout} -i '$filePath' ${auth.name}@${auth.host} -p ${auth.port}"
+      case NonKey() =>
+        s"echo '' && echo $SPLIT_BEGIN && ssh -o StrictHostKeyChecking=no -o ConnectTimeout=${config.connectTimeout} ${auth.name}@${auth.host} -p ${auth.port}"
     }
 
     jsch.scallInputStream.setCommandNoRsp(cmd)
@@ -134,7 +161,7 @@ case class Shell(auth: Auth,
       } else
         Left(Error(code, errorMsg))
     } else {
-      throw new Exception("root Shell env can't exit, use disconnect if you want close")
+      throw ExitRootShell
     }
   }
 
@@ -143,7 +170,7 @@ case class Shell(auth: Auth,
     * @param cmds: former command result => the Cmd
     * @return
     */
-  def excBatch(cmds: ContextCmdFlow*): Stream[Either[Error, String]] = {
+  def excBatch(cmds: ContextCmdFlow*): Stream[Either[Error, String]] = lock.synchronized {
     var formerResult: Option[String] = None
     var index = -1
     cmds.toStream.map{cmdFlow =>
@@ -164,7 +191,7 @@ case class Shell(auth: Auth,
     }
   }
 
-  def disconnect() = lock.synchronized {
+  def disconnect(): Unit = lock.synchronized {
     jsch.close()
   }
 }
