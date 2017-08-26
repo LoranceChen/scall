@@ -11,5 +11,5 @@ Shell is worse on organize command together. Scall is not replace Shell, rather 
 [Example.scala](https://github.com/LoranceChen/scall/blob/master/src/test/scala/Example.scala)
 
 ## TODO
-- replace `assert` to exception.
 - capture disconnect
+- add For-expressions operate batch commands
