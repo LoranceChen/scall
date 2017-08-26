@@ -29,10 +29,10 @@ class ScallInputStream(outputStream: ScallOutputStream)
 
   def setCommand(cmd: String) = methodLock.synchronized {
     writeSemaphore.acquire()
-    assert(!closedMark, {
+    if(closedMark) {
       writeSemaphore.release()
-      "Input Stream has been closed"
-    })
+      throw StreamClosedException("Input Stream has been closed")
+    }
 
     this.cmd = cmd.getBytes
     readied = true
@@ -49,10 +49,10 @@ class ScallInputStream(outputStream: ScallOutputStream)
     //acquire and release should under different thread.
     writeSemaphore.acquire()
 
-    assert(!closedMark, {
+    if(closedMark) {
       writeSemaphore.release()
-      "Input Stream has been closed"
-    })
+      throw StreamClosedException("Input Stream has been closed")
+    }
 
     this.cmd = cmd.getBytes
     readied = true

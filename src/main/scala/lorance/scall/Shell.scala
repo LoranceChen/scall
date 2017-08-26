@@ -71,7 +71,9 @@ case class Shell(auth: Auth,
 //  }
 
   def exc(cmd: Cmd): Either[Error, String] = lock.synchronized {
-    assert(status == Status.Using, s"current status is $status")
+    if(status != Status.Using) {
+      throw ShellContextException(s"current status is $status")
+    }
 
     val newCmd = s"echo '' && echo $SPLIT_BEGIN && " + cmd.content
     jsch.scallInputStream.setCommandNoRsp(newCmd)
@@ -98,7 +100,9 @@ case class Shell(auth: Auth,
 //  todo catch error such as network disconnect form new shell and notify Shell class to forbid current Shell and exit to parent automatic.
   //    use heartbeat at the library rather then use -o ServerAliveInterval=30
   def newShell(auth: Auth): Either[Error, Shell] = lock.synchronized {
-    assert(status == Status.Using, s"current status is $status")
+    if(status != Status.Using) {
+      throw ShellContextException(s"current status is $status")
+    }
 
 //    val cmd = s"echo $SPLIT && TERM=dumb sshpass -p '${auth.password}' ssh -t -o StrictHostKeyChecking=no ${auth.name}@${auth.host} -p ${auth.port}"
 //    val cmd = s"echo '' && echo $SPLIT_BEGIN && sshpass -p '${auth.password}' ssh -T -o StrictHostKeyChecking=no ${auth.name}@${auth.host} -p ${auth.port}"
@@ -137,7 +141,10 @@ case class Shell(auth: Auth,
     * @return
     */
   def exit(): Either[Error, Shell] = lock.synchronized {
-    assert(status == Status.Using, s"current status is $status")
+    if(status != Status.Using) {
+      throw ShellContextException(s"current status is $status")
+    }
+
     if(parent.isDefined) {
       val cmd = s"echo '' && echo $SPLIT_BEGIN && exit"
       jsch.scallInputStream.setCommandNoRsp(cmd)
