@@ -13,3 +13,4 @@ Shell is worse on organize command together. Scall is not replace Shell, rather 
 ## TODO
 - capture disconnect
 - add For-expressions operate batch commands
+- response message save to Bytes and print to string
