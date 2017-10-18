@@ -161,12 +161,15 @@ case class Shell(auth: Auth,
 
       val errorMsg = jsch.scallErrorStream.flashErrorMsg
 
-      if (code == 0) {
+      val curParent = parent.get
+      val rst = if (code == 0) {
         status = Status.Dropped
-        parent.get.status = Status.Using
-        Right(parent.get)
+        curParent.status = Status.Using
+        Right(curParent)
       } else
         Left(Error(code, errorMsg))
+
+      rst
     } else {
       throw ExitRootShell
     }
