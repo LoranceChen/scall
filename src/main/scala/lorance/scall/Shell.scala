@@ -47,6 +47,11 @@ case class Shell(auth: Auth,
   private val regex = """(?s)(.*)\n(.*)""".r
   private val onlyDigitsRegex = "^(\\d+)$".r
 
+  val init = {
+    //setting charset
+    exc(Cmd("LANG=en_US.UTF-8"))
+  }
+
   /**
     * a command could result with a string and
     * @param cmd
