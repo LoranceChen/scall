@@ -1,5 +1,7 @@
 package lorance.scall
 
+import scala.util.control.NonFatal
+
 trait Key
 case class Password(value: String) extends Key
 case class IdentityFile(path: String) extends Key
@@ -49,7 +51,14 @@ case class Shell(auth: Auth,
 
   val init = {
     //setting charset
-    exc(Cmd("LANG=en_US.UTF-8"))
+    try {
+      exc(Cmd("export LANG=en_US.UTF-8")).isRight
+      assert(exc(Cmd("locale")).right.get.contains("""LC_CTYPE="en_US.UTF-8""""), exc(Cmd("locale")).right.get)
+    } catch {
+      case NonFatal(e) =>
+        this.disconnect()
+        throw ShellSettingLangException
+    }
   }
 
   /**

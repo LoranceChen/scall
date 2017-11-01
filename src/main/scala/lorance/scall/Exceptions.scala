@@ -12,3 +12,4 @@ case class ExcBatchFailException(error: Error, cmd: Cmd, index: Int) extends
 case object ExitRootShell extends ScallException("root Shell env can't exit, use disconnect if you want close")
 case class StreamClosedException(msg: String) extends ScallException(msg)
 case class ShellContextException(msg: String) extends ScallException(msg)
+case object ShellSettingLangException extends ScallException("can NOT setting LANG to en_US.UTF-8")
