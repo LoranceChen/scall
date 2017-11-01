@@ -1,10 +1,6 @@
-import aether.AetherKeys._
-
-logLevel in aetherDeploy := Level.Info
-
 name := "scall"
 
-version := "0.2.11"
+version := "0.2.12"
 
 organization := "com.scalachan"
 
@@ -17,13 +13,6 @@ libraryDependencies ++= Seq(
 )
 
 sonatypeProfileName := "com.scalachan"
-
-overridePublishSettings
-
-enablePlugins(SignedAetherPlugin)
-
-disablePlugins(AetherPlugin)
-
 
 publishTo := {
   val nexus = "https://oss.sonatype.org/"
