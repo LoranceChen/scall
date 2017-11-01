@@ -4,12 +4,12 @@ logLevel in aetherDeploy := Level.Info
 
 name := "scall"
 
-version := "0.2.10"
+version := "0.2.11"
 
 organization := "com.scalachan"
 
-scalaVersion := "2.10.6"
-crossScalaVersions := Seq("2.10.6", "2.11.11", "2.12.3")
+scalaVersion := "2.12.4"
+crossScalaVersions := Seq("2.11.11", "2.12.4")
 
 libraryDependencies ++= Seq(
   "com.jcraft" % "jsch" % "0.1.54",
