@@ -52,8 +52,9 @@ case class Shell(auth: Auth,
   val init = {
     //setting charset
     try {
-      exc(Cmd("export LANG=en_US.UTF-8")).isRight
-      assert(exc(Cmd("locale")).right.get.contains("""LC_CTYPE="en_US.UTF-8""""), exc(Cmd("locale")).right.get)
+      val checker = exc(Cmd("""locale -a | egrep "en_US\.(UTF-8|utf8)"""")).right.get.matches("""(?s)en_US\.(UTF\-8|utf8)""")
+      assert(checker)
+      exc(Cmd("export LANG=en_US.UTF-8"))
     } catch {
       case NonFatal(e) =>
         this.disconnect()
