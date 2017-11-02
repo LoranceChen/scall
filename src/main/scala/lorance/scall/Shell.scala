@@ -51,14 +51,27 @@ case class Shell(auth: Auth,
 
   val init = {
     //setting charset
-    try {
-      val checker = exc(Cmd("""locale -a | egrep "en_US\.(UTF-8|utf8)"""")).right.get.matches("""(?s)en_US\.(UTF\-8|utf8)""")
-      assert(checker)
-      exc(Cmd("export LANG=en_US.UTF-8"))
-    } catch {
-      case NonFatal(e) =>
-        this.disconnect()
-        throw ShellSettingLangException
+    var utf8CheckSuccess = false
+
+    //check support either en_US.UTF-8 or en_US.utf8
+    val checker_UTF8 = exc(Cmd("""locale -a | grep "en_US\.UTF\-8""""))
+    println("checker_UTF8: " + checker_UTF8)
+    checker_UTF8 match {
+      case Right(str) if str.matches("""en_US\.UTF\-8""") =>
+        exc(Cmd("export LC_ALL=en_US.UTF-8"))
+        utf8CheckSuccess = true
+      case _ =>
+        val checker_utf8 = exc(Cmd("""locale -a | grep "en_US\.utf8""""))
+        checker_utf8 match {
+          case Right(str) if str.matches("""en_US\.utf8""") =>
+            exc(Cmd("export LC_ALL=en_US.utf8"))
+            utf8CheckSuccess = true
+        }
+    }
+
+    if (!utf8CheckSuccess) {
+      this.disconnect()
+      throw ShellSettingLangException
     }
   }
 
