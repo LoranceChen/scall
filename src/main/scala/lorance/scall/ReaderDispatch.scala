@@ -1,5 +1,7 @@
 package lorance.scall
 
+import java.nio.charset.Charset
+import org.slf4j.LoggerFactory
 import scala.collection.mutable.ArrayBuffer
 
 object DspState extends Enumeration {
@@ -12,7 +14,6 @@ object DspState extends Enumeration {
   * supply to output stream
   */
 class ReaderDispatch(load: ArrayBuffer[Byte], var state: DspState.Value) {
-
   private var debugIndex = 0
   private var cmpIndex = 0
   private val spltBeginLength = MAGIC_SPLIT_BEGIN.length
@@ -28,7 +29,7 @@ class ReaderDispatch(load: ArrayBuffer[Byte], var state: DspState.Value) {
     * @return
     */
   def appendMsg(bt: Byte): Option[String] = {
-    val item = bt.toChar
+    val item = bt
 
     debugIndex += 1
     state match {
@@ -50,12 +51,12 @@ class ReaderDispatch(load: ArrayBuffer[Byte], var state: DspState.Value) {
 
         //save to load until bytes too large(NOT setting yet) when settings or achieve EndSplit
         if(MAGIC_SPLIT_END(cmpIndex) != item) {
+          // ???
           if(cmpIndex > 0) {
-            load.append(MAGIC_SPLIT_END.substring(0, cmpIndex).toCharArray.map(_.toByte): _*)
+            load.append(MAGIC_SPLIT_END.take(cmpIndex): _*)
             cmpIndex = 0
           }
           load.append(bt)
-
         } else {
           cmpIndex += 1
           //achieve EndSplit
@@ -66,7 +67,9 @@ class ReaderDispatch(load: ArrayBuffer[Byte], var state: DspState.Value) {
     }
 
     state match {
-      case DspState.EndSplit => Some(load.map(_.toChar).mkString)
+      case DspState.EndSplit =>
+        //data copy
+        Some(new String(load.toArray, Charset.forName("UTF-8")))
       case _ => None
     }
 

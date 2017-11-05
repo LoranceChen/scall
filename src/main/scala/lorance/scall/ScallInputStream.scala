@@ -3,6 +3,7 @@ package lorance.scall
 import java.io.InputStream
 import java.util.concurrent.Semaphore
 
+import org.slf4j.LoggerFactory
 import rx.lang.scala.Subject
 
 /**
@@ -10,6 +11,8 @@ import rx.lang.scala.Subject
   */
 class ScallInputStream(outputStream: ScallOutputStream)
                       (writeSemaphore: Semaphore, writeLock: WriteLock) extends InputStream {
+  private val logger = LoggerFactory.getLogger(this.getClass)
+
   private var readied = false
   private var cmd: Array[Byte] = Array.emptyByteArray
   private var curIndex = 0
@@ -76,7 +79,7 @@ class ScallInputStream(outputStream: ScallOutputStream)
     * @param cmd
     * @return
     */
-  def setCommandMultiTimes(cmd: String) = methodLock.synchronized {
+  def setCommandMultiTimes(cmd: String, spareTime: Int = 200) = methodLock.synchronized {
     var needResend = true
     var rst: String = ""
 
@@ -86,8 +89,10 @@ class ScallInputStream(outputStream: ScallOutputStream)
     })
 
     while (needResend) {
+      println("do resend test")
+
       setCommandNoRsp(cmd)
-      Thread.sleep(15)
+      Thread.sleep(spareTime)
     }
 
     rst
@@ -117,7 +122,7 @@ class ScallInputStream(outputStream: ScallOutputStream)
       curIndex += 1
     }
 
-//    print(rst.toChar.toString)
+    logger.debug(rst.toChar.toString)
     rst
   }
 

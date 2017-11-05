@@ -12,5 +12,22 @@ Shell is worse on organize command together. Scall is not replace Shell, rather 
 
 ## TODO
 - capture disconnect
-- add For-expressions operate batch commands
-- response message save to Bytes and print to string rather then byte to char to string and only support UTF 8
+ 1. setting `ServerAliveInterval`
+
+- add For-expressions semantic to operating batch commands happily
+- response message save to Bytes and print to string rather then byte to char to string and only support UTF 8 [x]
+
+- every command use unique SPLIT protocol
+  :: consider ssh is based stream which is sequence:
+  client							server
+    req1 ->
+          						<- rsp1
+		req2 ->
+		req3 ->
+											<- rsp2
+											<- rsp3
+
+	so, sequence will not be break and command needn't unique SPLIT protocol
+	:: for debug log file specify send command and response message
+
+## Consider

@@ -1,5 +1,8 @@
 package lorance.scall
 
+import lorance.scall
+import org.slf4j.LoggerFactory
+
 import scala.util.control.NonFatal
 
 trait Key
@@ -34,7 +37,9 @@ object Status extends Enumeration {
 case class Error(code: Int, msg: String)
 class ShellLock //Shell public method should be mutex
 
-case class Config(connectTimeout: Int //second
+case class Config(connectTimeout: Int, //second
+                  serverAliveInterval: Int, //half test value
+                  serverAliveCountMax: Int //recommend this value > 1, 确保最少的等待时间
                  )
 /**
   * with shell streaming, there should define a unique echo string to warp response information to distinct other info from response stream,
@@ -42,12 +47,13 @@ case class Config(connectTimeout: Int //second
   */
 case class Shell(auth: Auth,
              parent: Option[Shell] = None
-           )(implicit lock: ShellLock = new ShellLock, config: Config = Config(10)) {
+           )(implicit lock: ShellLock = new ShellLock, config: Config = Config(10, 5, 2)) {
+  private implicit val logger = LoggerFactory.getLogger(this.getClass)
   private var status = Status.Using //is the shell under using
   val jsch: JSchWrapper = parent.map(_.jsch).getOrElse(new JSchWrapper(auth, config))
 
-  private val regex = """(?s)(.*)\n(.*)""".r
-  private val onlyDigitsRegex = "^(\\d+)$".r
+  private val regex = defStr2UTF8("""(?s)(.*)\n(.*)""").r
+  private val onlyDigitsRegex = defStr2UTF8("^(\\d+)$").r
 
   val init = {
     //setting charset
@@ -55,16 +61,18 @@ case class Shell(auth: Auth,
 
     //check support either en_US.UTF-8 or en_US.utf8
     val checker_UTF8 = exc(Cmd("""locale -a | grep "en_US\.UTF\-8""""))
-    println("checker_UTF8: " + checker_UTF8)
+    logger.debug("checker_UTF8: " + checker_UTF8)
     checker_UTF8 match {
       case Right(str) if str.matches("""en_US\.UTF\-8""") =>
-        exc(Cmd("export LC_ALL=en_US.UTF-8"))
+        exc(Cmd(defStr2UTF8("export LC_ALL=en_US.UTF-8")))
         utf8CheckSuccess = true
       case _ =>
-        val checker_utf8 = exc(Cmd("""locale -a | grep "en_US\.utf8""""))
+        val checker_utf8 = exc(Cmd(defStr2UTF8("""locale -a | grep "en_US\.utf8"""")))
         checker_utf8 match {
-          case Right(str) if str.matches("""en_US\.utf8""") =>
-            exc(Cmd("export LC_ALL=en_US.utf8"))
+          case Right(str) if str.matches(defStr2UTF8("""en_US\.utf8""")) =>
+            exc(Cmd(defStr2UTF8("export LC_ALL=en_US.utf8")))
+            logger.debug("checker_utf8: " + checker_UTF8)
+
             utf8CheckSuccess = true
         }
     }
@@ -103,11 +111,11 @@ case class Shell(auth: Auth,
       throw ShellContextException(s"current status is $status")
     }
 
-    val newCmd = s"echo '' && echo $SPLIT_BEGIN && " + cmd.content
+    val newCmd = defStr2UTF8(s"echo '' && echo $SPLIT_BEGIN_Str && " + cmd.content)
     jsch.scallInputStream.setCommandNoRsp(newCmd)
 
-    val newCmd2 =  s"echo $$? || echo $$? && echo $SPLIT_END || echo $SPLIT_END"
-    val split2 = jsch.scallInputStream.setCommand(newCmd2)
+    val newCmd2 = defStr2UTF8(s"echo $$? || echo $$? && echo $SPLIT_END_Str || echo $SPLIT_END_Str")
+    val split2 = jsch.scallInputStream.setCommandMultiTimes(newCmd2, spareTime = 2000)
 
     val (result, code) = split2 match {
       case onlyDigitsRegex(cde)  =>
@@ -136,17 +144,17 @@ case class Shell(auth: Auth,
 //    val cmd = s"echo '' && echo $SPLIT_BEGIN && sshpass -p '${auth.password}' ssh -T -o StrictHostKeyChecking=no ${auth.name}@${auth.host} -p ${auth.port}"
     val cmd = auth.key match {
       case Password(password) =>
-        s"echo '' && echo $SPLIT_BEGIN && sshpass -p '$password' ssh -o StrictHostKeyChecking=no -o ConnectTimeout=${config.connectTimeout} ${auth.name}@${auth.host} -p ${auth.port}"
+        defStr2UTF8(s"echo '' && echo $SPLIT_BEGIN_Str && sshpass -p '$password' ssh -o ServerAliveInterval=${config.serverAliveInterval} -o ServerAliveCountMax=${config.serverAliveCountMax} -o StrictHostKeyChecking=no -o ConnectTimeout=${config.connectTimeout} -T ${auth.name}@${auth.host} -p ${auth.port}")
       case IdentityFile(filePath) =>
-        s"echo '' && echo $SPLIT_BEGIN && ssh -o StrictHostKeyChecking=no -o ConnectTimeout=${config.connectTimeout} -i '$filePath' ${auth.name}@${auth.host} -p ${auth.port}"
+        defStr2UTF8(s"echo '' && echo $SPLIT_BEGIN_Str && ssh -o ServerAliveInterval=${config.serverAliveInterval} -o ServerAliveCountMax=${config.serverAliveCountMax} -o StrictHostKeyChecking=no -o ConnectTimeout=${config.connectTimeout} -i '$filePath' -T ${auth.name}@${auth.host} -p ${auth.port}")
       case NonKey() =>
-        s"echo '' && echo $SPLIT_BEGIN && ssh -o StrictHostKeyChecking=no -o ConnectTimeout=${config.connectTimeout} ${auth.name}@${auth.host} -p ${auth.port}"
+        defStr2UTF8(s"echo '' && echo $SPLIT_BEGIN_Str && ssh -o ServerAliveInterval=${config.serverAliveInterval} -o ServerAliveCountMax=${config.serverAliveCountMax} -o StrictHostKeyChecking=no -o ConnectTimeout=${config.connectTimeout} -T ${auth.name}@${auth.host} -p ${auth.port}")
     }
 
     jsch.scallInputStream.setCommandNoRsp(cmd)
 
-    val echoCmd = s"echo $$? || echo $$? && echo $SPLIT_END || echo $SPLIT_END"
-    val split = jsch.scallInputStream.setCommand(echoCmd)
+    val echoCmd = defStr2UTF8(s"echo $$? || echo $$? && echo $SPLIT_END_Str || echo $SPLIT_END_Str")
+    val split = jsch.scallInputStream.setCommandMultiTimes(echoCmd)
 
     val (_, code) = split match {
       case onlyDigitsRegex(cde) => //only print a `echo $?` after `exit`
@@ -174,10 +182,10 @@ case class Shell(auth: Auth,
     }
 
     if(parent.isDefined) {
-      val cmd = s"echo '' && echo $SPLIT_BEGIN && exit"
+      val cmd = defStr2UTF8(s"echo '' && echo $SPLIT_BEGIN_Str && exit")
       jsch.scallInputStream.setCommandNoRsp(cmd)
 
-      val echoCmd = s"echo $$? || echo $$? && echo $SPLIT_END || echo $SPLIT_END"
+      val echoCmd = defStr2UTF8(s"echo $$? || echo $$? && echo $SPLIT_END_Str || echo $SPLIT_END_Str")
       val split = jsch.scallInputStream.setCommandMultiTimes(echoCmd)
 
       val (_, code) = split match {

@@ -1,0 +1,75 @@
+<configuration scan="true" scanPeriod="60 seconds" debug="true">
+
+    <appender name="stdout" class="ch.qos.logback.core.ConsoleAppender">
+        <!--  just for stdout in screen   -->
+        <encoder charset="UTF-8">
+            <pattern>[%date] [%level] [%logger] - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="Print2Console" class="ch.qos.logback.core.ConsoleAppender">
+        <!--  just for stdout in screen   -->
+        <encoder charset="UTF-8">
+            <pattern>%msg</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="InputPrint2File" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <encoder charset="UTF-8">
+            <pattern>%msg</pattern>
+        </encoder>
+
+        <!--fill log-->
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/scall-send.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxHistory>10</maxHistory>
+            <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+            <maxFileSize>100MB</maxFileSize>
+            </timeBasedFileNamingAndTriggeringPolicy>
+        </rollingPolicy>
+    </appender>
+
+    <appender name="OutputPrint2File" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <encoder charset="UTF-8">
+            <pattern>%msg</pattern>
+        </encoder>
+
+        <!--fill log-->
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/scall-receive.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxHistory>10</maxHistory>
+            <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+                <maxFileSize>100MB</maxFileSize>
+            </timeBasedFileNamingAndTriggeringPolicy>
+        </rollingPolicy>
+    </appender>
+
+    <logger name="lorance.scall.ScallInputStream" level="DEBUG" addtivity="false">
+        <appender-ref ref="InputPrint2File" />
+        <appender-ref ref="Print2Console" />
+    </logger>
+
+    <logger name="lorance.scall.ScallOutputStream" level="DEBUG" addtivity="false">
+        <appender-ref ref="OutputPrint2File" />
+        <appender-ref ref="Print2Console" />
+
+    </logger>
+
+    <logger name="lorance.scall.ScallErrorStream" level="DEBUG" addtivity="false">
+        <appender-ref ref="OutputPrint2File" />
+        <appender-ref ref="Print2Console" />
+    </logger>
+
+    <!--这里会输出name="lorance.scall.ScallErrorStream"的路径吗？-->
+    <!--<root level="INFO">-->
+        <!--<appender-ref ref="stdout" />-->
+    <!--</root>-->
+
+    <!--<root level="INFO">-->
+        <!--<appender-ref ref="stdout" />-->
+        <!--<appender-ref ref="FILE" />-->
+        <!--<appender-ref ref="catAppender" />-->
+    <!--</root>-->
+
+    <!--<logger name="org.apache" level="WARN"/>-->
+</configuration>
