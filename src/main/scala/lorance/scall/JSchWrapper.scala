@@ -4,6 +4,7 @@ import java.util.concurrent.Semaphore
 
 import com.jcraft.jsch.{Channel, JSch, Session}
 import org.slf4j.LoggerFactory
+import scala.concurrent.{Future, Promise}
 
 case class WriteLock()
 
@@ -18,6 +19,9 @@ sealed class JSchWrapper(auth: Auth, config: Config) {
   private val writeLock = WriteLock()
   private val writeSemaphore = new Semaphore(1)
 
+  private val disconnectFuture = Promise[Auth]
+
+  val onDisconnect: Future[Auth] = disconnectFuture.future
   val scallOutputStream = new ScallOutputStream(writeLock)
   val scallErrorStream = new ScallErrorStream()
   val scallInputStream = new ScallInputStream(scallOutputStream)(writeSemaphore, writeLock)
@@ -34,10 +38,15 @@ sealed class JSchWrapper(auth: Auth, config: Config) {
   session.setServerAliveInterval(config.serverAliveInterval * 1000)
   session.setServerAliveCountMax(2)
   session.connect(config.connectTimeout * 1000) // making a connection with timeout.
-  new Thread(() => {
-    while(true) {
-      logger.debug("is connecting - " + session.isConnected)
-      Thread.sleep(7000)
+
+  //每10秒检查一次连接状况
+  new Thread(new Runnable(){
+    override def run() = {
+      while(session.isConnected) {
+        Thread.sleep(10 * 1000) //10s
+      }
+
+      disconnectFuture.trySuccess(auth)
     }
   }).start()
 
