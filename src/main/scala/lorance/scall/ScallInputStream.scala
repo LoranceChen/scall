@@ -89,7 +89,7 @@ class ScallInputStream(outputStream: ScallOutputStream)
     })
 
     while (needResend) {
-      println("do resend test")
+//      println("do resend test")
 
       setCommandNoRsp(cmd)
       Thread.sleep(spareTime)
