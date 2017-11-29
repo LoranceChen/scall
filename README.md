@@ -2,7 +2,7 @@
 Shell is worse on organize command together. Scall is not replace Shell, rather then, enhance the shell command by make it organizable.
 
 ## Usage
-`libraryDependencies += "com.scalachan" %% "scall" % "0.2.12"` //only support Scala 2.11 and 2.12
+`libraryDependencies += "com.scalachan" %% "scall" % "0.4.0"` //only support Scala 2.11 and 2.12
 
 ## Dependency
 - JSch
