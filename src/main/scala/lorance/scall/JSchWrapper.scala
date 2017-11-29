@@ -43,7 +43,7 @@ sealed class JSchWrapper(auth: Auth, config: Config) {
   new Thread(new Runnable(){
     override def run() = {
       while(session.isConnected) {
-        Thread.sleep(10 * 1000) //10s
+        Thread.sleep(20 * 1000) //10s
       }
 
       disconnectFuture.trySuccess(auth)
@@ -57,11 +57,8 @@ sealed class JSchWrapper(auth: Auth, config: Config) {
 //  channel.asInstanceOf[ChannelShell].setPtyType("dumb") // remove special effect, such as color
   val channelShell = channel.asInstanceOf[ChannelShell]
   channelShell.setPty(false)
-//  channelShell.setEnv("LC_ALL", "en_US.UTF-8")
-//  channelShell.setEnv("LC_ALL", "en_US.utf8")
 
   // Enable agent-forwarding.
-  //((ChannelShell)channel).setAgentForwarding(true);
   channel.setInputStream(scallInputStream)
   channel.setOutputStream(scallOutputStream)
   channel.setExtOutputStream(scallErrorStream)
@@ -70,6 +67,7 @@ sealed class JSchWrapper(auth: Auth, config: Config) {
   def close() = {
     scallInputStream.close()
     scallOutputStream.close()
+    scallErrorStream.close()
     channel.disconnect()
     session.disconnect()
   }

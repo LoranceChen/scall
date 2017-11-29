@@ -8,19 +8,23 @@ object DspState extends Enumeration {
   val BeginSplit = Value(1, "BegSplit")
   val Load = Value(2, "Load")
   val EndSplit = Value(3, "EndSplit")
+  val HostLevelId = Value(4, "HostLevelId")
+  val EndProtocol = Value(5, "EndProtocol")
 }
+
+case class ProtoData(load: String, hostLevel: Int)
 
 /**
   * supply to output stream
   */
-class ReaderDispatch(load: ArrayBuffer[Byte], var state: DspState.Value) {
+class ReaderDispatch(load: ArrayBuffer[Byte], hostLevel: ArrayBuffer[Byte], var state: DspState.Value) {
   private var debugIndex = 0
   private var cmpIndex = 0
   private val spltBeginLength = MAGIC_SPLIT_BEGIN.length
   private val spltEndLength = MAGIC_SPLIT_END.length
 
   def this() {
-    this(ArrayBuffer.empty[Byte], DspState.BeginSplit)
+    this(ArrayBuffer.empty[Byte], ArrayBuffer.empty[Byte], DspState.BeginSplit)
   }
 
   /**
@@ -28,7 +32,7 @@ class ReaderDispatch(load: ArrayBuffer[Byte], var state: DspState.Value) {
     * @param bt
     * @return
     */
-  def appendMsg(bt: Byte): Option[String] = {
+  def appendMsg(bt: Byte): Option[ProtoData] = {
     val item = bt
 
     debugIndex += 1
@@ -61,15 +65,24 @@ class ReaderDispatch(load: ArrayBuffer[Byte], var state: DspState.Value) {
           cmpIndex += 1
           //achieve EndSplit
           if(cmpIndex == spltEndLength) {
-            state = DspState.EndSplit
+            state = DspState.HostLevelId
           }
+        }
+      case DspState.HostLevelId =>
+        if(item == `UTF8_\n_Byte`) {
+          state = DspState.EndProtocol
+        } else {
+          hostLevel.append(item)
         }
     }
 
     state match {
-      case DspState.EndSplit =>
+      case DspState.EndProtocol =>
         //data copy
-        Some(new String(load.toArray, Charset.forName("UTF-8")))
+        Some(ProtoData(
+          new String(load.toArray, Charset.forName("UTF-8")),
+          new String(hostLevel.toArray, Charset.forName("UTF-8")).toInt
+        ))
       case _ => None
     }
 

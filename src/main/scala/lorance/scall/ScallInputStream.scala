@@ -1,6 +1,6 @@
 package lorance.scall
 
-import java.io.InputStream
+import java.io.{InputStream, PipedInputStream}
 import java.util.concurrent.Semaphore
 
 import org.slf4j.LoggerFactory
@@ -17,7 +17,7 @@ class ScallInputStream(outputStream: ScallOutputStream)
   private var cmd: Array[Byte] = Array.emptyByteArray
   private var curIndex = 0
   private var closedMark = false
-  private var curResult: String = _
+  private var curResult: ProtoData = _
   outputStream.outputObv.subscribe(curResult = _)
 
   val readCompleteObv = Subject[Unit]()
@@ -30,7 +30,7 @@ class ScallInputStream(outputStream: ScallOutputStream)
 
   val noRspLock = new Object
 
-  def setCommand(cmd: String) = methodLock.synchronized {
+  def setCommand(cmd: String): ProtoData = methodLock.synchronized {
     writeSemaphore.acquire()
     if(closedMark) {
       writeSemaphore.release()
@@ -79,9 +79,9 @@ class ScallInputStream(outputStream: ScallOutputStream)
     * @param cmd
     * @return
     */
-  def setCommandMultiTimes(cmd: String, spareTime: Int = 200) = methodLock.synchronized {
+  def setCommandMultiTimes(cmd: String, spareTime: Int = 30): ProtoData = methodLock.synchronized {
     var needResend = true
-    var rst: String = ""
+    var rst: ProtoData = null
 
     outputStream.outputObv.first.subscribe(msg => {
       needResend = false
@@ -89,7 +89,7 @@ class ScallInputStream(outputStream: ScallOutputStream)
     })
 
     while (needResend) {
-//      println("do resend test")
+      println("do resend test")
 
       setCommandNoRsp(cmd)
       Thread.sleep(spareTime)

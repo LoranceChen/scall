@@ -13,3 +13,5 @@ case object ExitRootShell extends ScallException("root Shell env can't exit, use
 case class StreamClosedException(msg: String) extends ScallException(msg)
 case class ShellContextException(msg: String) extends ScallException(msg)
 case object ShellSettingLangException extends ScallException("can NOT setting LANG to en_US.UTF-8")
+case class NetworkDisconnect(shell: Shell) extends ScallException(s"Shell back to level:${shell.levelId}")
+case object ShellLevelFlow extends ScallException("can NOT setting sub shell more then 256")

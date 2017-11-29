@@ -28,6 +28,7 @@ package object scall {
   val MAGIC_SPLIT_END_Str = s"\n$SPLIT_END_Str\n"
   val MAGIC_SPLIT_END = defStr2Bytes(MAGIC_SPLIT_END_Str)
 
+  val `UTF8_\n_Byte` = 10.toByte
   /**
     * a method must be right, if not
     * @param cmdResult is a Cmd executed result

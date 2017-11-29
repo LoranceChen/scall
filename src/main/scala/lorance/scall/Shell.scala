@@ -1,9 +1,10 @@
 package lorance.scall
 
-import lorance.scall
 import org.slf4j.LoggerFactory
 
-import scala.util.control.NonFatal
+import scala.annotation.tailrec
+import scala.concurrent.{Future, Promise}
+import scala.concurrent.ExecutionContext.Implicits.global
 
 trait Key
 case class Password(value: String) extends Key
@@ -45,15 +46,33 @@ case class Config(connectTimeout: Int, //second
   * with shell streaming, there should define a unique echo string to warp response information to distinct other info from response stream,
   * that means, e.g. If I want execute `pwd`, so I should send a command string with `echo uniqueStr && pwd && echo uniqueStr || echo uniqueStr`
   */
-case class Shell(auth: Auth,
-             parent: Option[Shell] = None
-           )(implicit lock: ShellLock = new ShellLock, config: Config = Config(10, 5, 2)) {
+case class Shell( auth: Auth,
+                  parent: Option[Shell] = None//a unique id string for identity the shell
+           )(implicit lock: ShellLock = new ShellLock, config: Config = Config(10, 3, 2)) {
+  val levelId: Int = parent.map(_.levelId + 1).getOrElse(0)
+
   private implicit val logger = LoggerFactory.getLogger(this.getClass)
   private var status = Status.Using //is the shell under using
-  val jsch: JSchWrapper = parent.map(_.jsch).getOrElse(new JSchWrapper(auth, config))
+  private val jsch: JSchWrapper = parent.map(_.jsch).getOrElse(new JSchWrapper(auth, config))
+
+  private val echoBegin = s"echo '';echo '$SPLIT_BEGIN_Str'"
+  private val echoEnd = s"echo $$?;echo '$SPLIT_END_Str';echo '$levelId'"
+  private val echoEndSSH = s"""echo $$?;echo "$SPLIT_END_Str";echo "$levelId""""
 
   private val regex = defStr2UTF8("""(?s)(.*)\n(.*)""").r
   private val onlyDigitsRegex = defStr2UTF8("^(\\d+)$").r
+
+  //return: connecting Shell when current Shell is disconnect
+  private val disconnectFur = Promise[Option[Shell]]
+  //event
+  val onDisconnect: Future[Option[Shell]] = {
+    parent match {
+      case None =>
+        jsch.onDisconnect.map(_ => None)
+      case Some(p) =>
+        disconnectFur.future
+    }
+  }
 
   val init = {
     //setting charset
@@ -90,34 +109,17 @@ case class Shell(auth: Auth,
     *
     * NOTIC: refer regex: (?s) https://stackoverflow.com/questions/45625134/scala-regex-cant-match-r-n-in-a-giving-string-which-contains-multiple-r-n/45625835#45625835
     */
-//  def exc(cmd: Cmd): Either[Error, String] = lock.synchronized {
-//    assert(status == Status.Using, s"current status is $status")
-//
-//    val newCmd = s"echo '' && echo $SPLIT_BEGIN && " + cmd.content + s" && echo $$? || echo $$? && echo $SPLIT_END || echo $SPLIT_END"
-//    val split = jsch.scallInputStream.setCommand(newCmd)
-//    val (result, code) = split match {
-//      case onlyDigitsRegex(cde)  =>
-//        ("", cde.toInt)
-//      case regex(rst, cde) =>
-//        (rst, cde.toInt)
-//    }
-//
-//    val errorMsg = jsch.scallErrorStream.flashErrorMsg
-//    if(code == 0) Right(result) else Left(Error(code, errorMsg))
-//  }
-
   def exc(cmd: Cmd): Either[Error, String] = lock.synchronized {
     if(status != Status.Using) {
       throw ShellContextException(s"current status is $status")
     }
 
-    val newCmd = defStr2UTF8(s"echo '' && echo $SPLIT_BEGIN_Str && " + cmd.content)
-    jsch.scallInputStream.setCommandNoRsp(newCmd)
+    val newCmd = echoCmdStr(cmd.content)
+    val ProtoData(split, rstLevelId) = jsch.scallInputStream.setCommand(newCmd)
 
-    val newCmd2 = defStr2UTF8(s"echo $$? || echo $$? && echo $SPLIT_END_Str || echo $SPLIT_END_Str")
-    val split2 = jsch.scallInputStream.setCommandMultiTimes(newCmd2, spareTime = 2000)
+    checkConnect(rstLevelId, levelId)
 
-    val (result, code) = split2 match {
+    val (result, code) = split match {
       case onlyDigitsRegex(cde)  =>
         ("", cde.toInt)
       case regex(rst, cde) =>
@@ -128,33 +130,34 @@ case class Shell(auth: Auth,
     if(code == 0) Right(result) else Left(Error(code, errorMsg))
   }
 
-//  def sudo(cmd: Cmd): Either[Error, String] = lock.synchronized {
-//    excSplit(Cmd("sudo " + cmd.content))
-//  }
-
-//  private val newRegex = """(?s).*\n(.*)""".r
-//  todo catch error such as network disconnect form new shell and notify Shell class to forbid current Shell and exit to parent automatic.
-  //    use heartbeat at the library rather then use -o ServerAliveInterval=30
+  /**
+    * new shell create when user context is change.Contains: 1. remote ssh 2. su - new user
+    * @param auth
+    * @return
+    */
   def newShell(auth: Auth): Either[Error, Shell] = lock.synchronized {
     if(status != Status.Using) {
       throw ShellContextException(s"current status is $status")
     }
 
-//    val cmd = s"echo $SPLIT && TERM=dumb sshpass -p '${auth.password}' ssh -t -o StrictHostKeyChecking=no ${auth.name}@${auth.host} -p ${auth.port}"
-//    val cmd = s"echo '' && echo $SPLIT_BEGIN && sshpass -p '${auth.password}' ssh -T -o StrictHostKeyChecking=no ${auth.name}@${auth.host} -p ${auth.port}"
     val cmd = auth.key match {
       case Password(password) =>
-        defStr2UTF8(s"echo '' && echo $SPLIT_BEGIN_Str && sshpass -p '$password' ssh -o ServerAliveInterval=${config.serverAliveInterval} -o ServerAliveCountMax=${config.serverAliveCountMax} -o StrictHostKeyChecking=no -o ConnectTimeout=${config.connectTimeout} -T ${auth.name}@${auth.host} -p ${auth.port}")
+        echoCmdStr(s"sshpass -p '$password' ssh -o ServerAliveInterval=${config.serverAliveInterval} -o ServerAliveCountMax=${config.serverAliveCountMax} -o StrictHostKeyChecking=no -o ConnectTimeout=${config.connectTimeout} -T ${auth.name}@${auth.host} -p${auth.port} '$echoEndSSH;/bin/bash'")
       case IdentityFile(filePath) =>
-        defStr2UTF8(s"echo '' && echo $SPLIT_BEGIN_Str && ssh -o ServerAliveInterval=${config.serverAliveInterval} -o ServerAliveCountMax=${config.serverAliveCountMax} -o StrictHostKeyChecking=no -o ConnectTimeout=${config.connectTimeout} -i '$filePath' -T ${auth.name}@${auth.host} -p ${auth.port}")
+        echoCmdStr(s"ssh -o ServerAliveInterval=${config.serverAliveInterval} -o ServerAliveCountMax=${config.serverAliveCountMax} -o StrictHostKeyChecking=no -o ConnectTimeout=${config.connectTimeout} -i '$filePath' -T ${auth.name}@${auth.host} -p${auth.port} '$echoEndSSH;/bin/bash'")
       case NonKey() =>
-        defStr2UTF8(s"echo '' && echo $SPLIT_BEGIN_Str && ssh -o ServerAliveInterval=${config.serverAliveInterval} -o ServerAliveCountMax=${config.serverAliveCountMax} -o StrictHostKeyChecking=no -o ConnectTimeout=${config.connectTimeout} -T ${auth.name}@${auth.host} -p ${auth.port}")
+        echoCmdStr(s"ssh -o ServerAliveInterval=${config.serverAliveInterval} -o ServerAliveCountMax=${config.serverAliveCountMax} -o StrictHostKeyChecking=no -o ConnectTimeout=${config.connectTimeout} -T ${auth.name}@${auth.host} -p${auth.port} '$echoEndSSH;/bin/bash'")
     }
 
-    jsch.scallInputStream.setCommandNoRsp(cmd)
+//    jsch.scallInputStream.setCommandNoRsp(cmd)
 
-    val echoCmd = defStr2UTF8(s"echo $$? || echo $$? && echo $SPLIT_END_Str || echo $SPLIT_END_Str")
-    val split = jsch.scallInputStream.setCommandMultiTimes(echoCmd)
+//    val echoCmd = defStr2UTF8(echoEnd)
+//    val ProtoData(split, rstLevelId) = jsch.scallInputStream.setCommandMultiTimes(echoCmd)
+
+
+    val ProtoData(split, rstLevelId) = jsch.scallInputStream.setCommand(cmd)
+
+    checkConnect(rstLevelId, levelId)
 
     val (_, code) = split match {
       case onlyDigitsRegex(cde) => //only print a `echo $?` after `exit`
@@ -182,17 +185,15 @@ case class Shell(auth: Auth,
     }
 
     if(parent.isDefined) {
-      val cmd = defStr2UTF8(s"echo '' && echo $SPLIT_BEGIN_Str && exit")
-      jsch.scallInputStream.setCommandNoRsp(cmd)
+      val cmd = echoCmdStr("exit")
+      val ProtoData(split, rstLevelId) = jsch.scallInputStream.setCommand(cmd)
 
-      val echoCmd = defStr2UTF8(s"echo $$? || echo $$? && echo $SPLIT_END_Str || echo $SPLIT_END_Str")
-      val split = jsch.scallInputStream.setCommandMultiTimes(echoCmd)
-
+      checkConnect(rstLevelId, levelId - 1)
       val (_, code) = split match {
         case onlyDigitsRegex(cde) => //exit success - only print a `echo $?` after `exit`
           ("", cde.toInt)
-        case regex(rst, cde) => //maybe `exit` fail and print some message before execute `echo $?`
-          (rst, cde.toInt)
+        case regex(rst1, cde) => //maybe `exit` fail and print some message before execute `echo $?`
+          (rst1, cde.toInt)
       }
 
       val errorMsg = jsch.scallErrorStream.flashErrorMsg
@@ -205,6 +206,7 @@ case class Shell(auth: Auth,
       } else
         Left(Error(code, errorMsg))
 
+      disconnectFur.trySuccess(parent)
       rst
     } else {
       throw ExitRootShell
@@ -239,5 +241,25 @@ case class Shell(auth: Auth,
 
   def disconnect(): Unit = lock.synchronized {
     jsch.close()
+  }
+
+  /**
+    * append split to command string
+    */
+  private def echoCmdStr(cmd: String) = {
+    defStr2UTF8(s"$echoBegin;$cmd;$echoEnd")
+  }
+
+  private def checkConnect(curLevelId: Int, aimLevelId: Int) = {
+    println(s"checkConnect($curLevelId: Int, $aimLevelId: Int)")
+    if(curLevelId != aimLevelId) {
+      // find current connecting shell
+      @tailrec def findTheShell(curShell: Shell): Shell = {
+        if(parent.get.levelId == aimLevelId) parent.get
+        else findTheShell(parent.get)
+      }
+
+      disconnectFur.trySuccess(Some(findTheShell(this)))
+    }
   }
 }

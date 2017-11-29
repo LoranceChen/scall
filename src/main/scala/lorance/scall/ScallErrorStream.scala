@@ -22,6 +22,7 @@ class ScallErrorStream() extends OutputStream {
 
   override def write(b: Int): Unit = {
     logger.debug(b.toChar.toString)
+//    logger.debug("["+b.toChar.toString+"]")
     resultHolder.append(b.toByte)
   }
 
