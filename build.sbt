@@ -5,7 +5,7 @@ version := "0.4.0"
 organization := "com.scalachan"
 
 scalaVersion := "2.12.4"
-crossScalaVersions := Seq("2.11.11", "2.12.4")
+crossScalaVersions := Seq("2.12.4", "2.11.11")
 
 libraryDependencies ++= Seq(
   "com.jcraft" % "jsch" % "0.1.54",
