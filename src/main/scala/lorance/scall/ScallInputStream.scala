@@ -47,56 +47,56 @@ class ScallInputStream(outputStream: ScallOutputStream)
     writeLock.synchronized(writeLock.wait())
     curResult
   }
-
-  def setCommandNoRsp(cmd: String) = methodLock.synchronized {
-    //acquire and release should under different thread.
-    writeSemaphore.acquire()
-
-    if(closedMark) {
-      writeSemaphore.release()
-      throw StreamClosedException("Input Stream has been closed")
-    }
-
-    this.cmd = cmd.getBytes
-    readied = true
-
-    //register must before notify read
-    //only register once
-    readCompleteObv.first.subscribe(x => {
-      noRspLock.synchronized(noRspLock.notify())
-    })
-
-    //read data
-    lockRead.synchronized(lockRead.notify())
-
-    // wait message send complete
-    noRspLock.synchronized(noRspLock.wait())
-  }
-
-  /**
-    * send command at least once.
-    * NOTICE: make sure it is non effect
-    * @param cmd
-    * @return
-    */
-  def setCommandMultiTimes(cmd: String, spareTime: Int = 30): ProtoData = methodLock.synchronized {
-    var needResend = true
-    var rst: ProtoData = null
-
-    outputStream.outputObv.first.subscribe(msg => {
-      needResend = false
-      rst = msg
-    })
-
-    while (needResend) {
-      println("do resend test")
-
-      setCommandNoRsp(cmd)
-      Thread.sleep(spareTime)
-    }
-
-    rst
-  }
+//
+//  def setCommandNoRsp(cmd: String) = methodLock.synchronized {
+//    //acquire and release should under different thread.
+//    writeSemaphore.acquire()
+//
+//    if(closedMark) {
+//      writeSemaphore.release()
+//      throw StreamClosedException("Input Stream has been closed")
+//    }
+//
+//    this.cmd = cmd.getBytes
+//    readied = true
+//
+//    //register must before notify read
+//    //only register once
+//    readCompleteObv.first.subscribe(x => {
+//      noRspLock.synchronized(noRspLock.notify())
+//    })
+//
+//    //read data
+//    lockRead.synchronized(lockRead.notify())
+//
+//    // wait message send complete
+//    noRspLock.synchronized(noRspLock.wait())
+//  }
+//
+//  /**
+//    * send command at least once.
+//    * NOTICE: make sure it is non effect
+//    * @param cmd
+//    * @return
+//    */
+//  def setCommandMultiTimes(cmd: String, spareTime: Int = 30): ProtoData = methodLock.synchronized {
+//    var needResend = true
+//    var rst: ProtoData = null
+//
+//    outputStream.outputObv.first.subscribe(msg => {
+//      needResend = false
+//      rst = msg
+//    })
+//
+//    while (needResend) {
+//      println("do resend test")
+//
+//      setCommandNoRsp(cmd)
+//      Thread.sleep(spareTime)
+//    }
+//
+//    rst
+//  }
 
   override def read: Int =  {
     var rst: Int = -1
