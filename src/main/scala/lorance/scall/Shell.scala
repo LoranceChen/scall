@@ -57,7 +57,7 @@ case class Shell( auth: Auth,
 
   private val echoBegin = s"echo '';echo '$SPLIT_BEGIN_Str'"
   private val echoEnd = s"echo $$?;echo '$SPLIT_END_Str';echo '$levelId'"
-  private val echoEndSSH = s"""echo $$?;echo "$SPLIT_END_Str";echo "$levelId""""
+  private val echoSSH = s"""$echoBegin;echo $$?;echo "$SPLIT_END_Str";echo "${levelId + 1}""""
 
   private val regex = defStr2UTF8("""(?s)(.*)\n(.*)""").r
   private val onlyDigitsRegex = defStr2UTF8("^(\\d+)$").r
@@ -115,16 +115,9 @@ case class Shell( auth: Auth,
     }
 
     val newCmd = echoCmdStr(cmd.content)
-    val ProtoData(split, rstLevelId) = jsch.scallInputStream.setCommand(newCmd)
+    val ParsedProto(result, code, rstLevelId) = jsch.scallInputStream.setCommand(newCmd)
 
     checkConnect(rstLevelId, levelId)
-
-    val (result, code) = split match {
-      case onlyDigitsRegex(cde)  =>
-        ("", cde.toInt)
-      case regex(rst, cde) =>
-        (rst, cde.toInt)
-    }
 
     val errorMsg = jsch.scallErrorStream.flashErrorMsg
     if(code == 0) Right(result) else Left(Error(code, errorMsg))
@@ -142,11 +135,11 @@ case class Shell( auth: Auth,
 
     val cmd = auth.key match {
       case Password(password) =>
-        echoCmdStr(s"sshpass -p '$password' ssh -o ServerAliveInterval=${config.serverAliveInterval} -o ServerAliveCountMax=${config.serverAliveCountMax} -o StrictHostKeyChecking=no -o ConnectTimeout=${config.connectTimeout} -T ${auth.name}@${auth.host} -p${auth.port} '$echoEndSSH;/bin/bash'")
+        echoCmdStr(s"sshpass -p '$password' ssh -o ServerAliveInterval=${config.serverAliveInterval} -o ServerAliveCountMax=${config.serverAliveCountMax} -o StrictHostKeyChecking=no -o ConnectTimeout=${config.connectTimeout} -T ${auth.name}@${auth.host} -p${auth.port} '$echoSSH;/bin/bash'")
       case IdentityFile(filePath) =>
-        echoCmdStr(s"ssh -o ServerAliveInterval=${config.serverAliveInterval} -o ServerAliveCountMax=${config.serverAliveCountMax} -o StrictHostKeyChecking=no -o ConnectTimeout=${config.connectTimeout} -i '$filePath' -T ${auth.name}@${auth.host} -p${auth.port} '$echoEndSSH;/bin/bash'")
+        echoCmdStr(s"ssh -o ServerAliveInterval=${config.serverAliveInterval} -o ServerAliveCountMax=${config.serverAliveCountMax} -o StrictHostKeyChecking=no -o ConnectTimeout=${config.connectTimeout} -i '$filePath' -T ${auth.name}@${auth.host} -p${auth.port} '$echoSSH;/bin/bash'")
       case NonKey() =>
-        echoCmdStr(s"ssh -o ServerAliveInterval=${config.serverAliveInterval} -o ServerAliveCountMax=${config.serverAliveCountMax} -o StrictHostKeyChecking=no -o ConnectTimeout=${config.connectTimeout} -T ${auth.name}@${auth.host} -p${auth.port} '$echoEndSSH;/bin/bash'")
+        echoCmdStr(s"ssh -o ServerAliveInterval=${config.serverAliveInterval} -o ServerAliveCountMax=${config.serverAliveCountMax} -o StrictHostKeyChecking=no -o ConnectTimeout=${config.connectTimeout} -T ${auth.name}@${auth.host} -p${auth.port} '$echoSSH;/bin/bash'")
     }
 
 //    jsch.scallInputStream.setCommandNoRsp(cmd)
@@ -155,16 +148,9 @@ case class Shell( auth: Auth,
 //    val ProtoData(split, rstLevelId) = jsch.scallInputStream.setCommandMultiTimes(echoCmd)
 
 
-    val ProtoData(split, rstLevelId) = jsch.scallInputStream.setCommand(cmd)
+    val ParsedProto(result, code, rstLevelId) = jsch.scallInputStream.setCommand(cmd)
 
     checkConnect(rstLevelId, levelId)
-
-    val (_, code) = split match {
-      case onlyDigitsRegex(cde) => //only print a `echo $?` after `exit`
-        ("", cde.toInt)
-      case regex(rst, cde) =>
-        (rst, cde.toInt)
-    }
 
     val errorMsg = jsch.scallErrorStream.flashErrorMsg
 
@@ -186,15 +172,7 @@ case class Shell( auth: Auth,
 
     if(parent.isDefined) {
       val cmd = echoCmdStr("exit")
-      val ProtoData(split, rstLevelId) = jsch.scallInputStream.setCommand(cmd)
-
-      checkConnect(rstLevelId, levelId - 1)
-      val (_, code) = split match {
-        case onlyDigitsRegex(cde) => //exit success - only print a `echo $?` after `exit`
-          ("", cde.toInt)
-        case regex(rst1, cde) => //maybe `exit` fail and print some message before execute `echo $?`
-          (rst1, cde.toInt)
-      }
+      val ParsedProto(result, code, rstLevelId) = jsch.scallInputStream.setCommand(cmd)
 
       val errorMsg = jsch.scallErrorStream.flashErrorMsg
 
@@ -251,7 +229,7 @@ case class Shell( auth: Auth,
   }
 
   private def checkConnect(curLevelId: Int, aimLevelId: Int) = {
-    println(s"checkConnect($curLevelId: Int, $aimLevelId: Int)")
+//    println(s"checkConnect($curLevelId: Int, $aimLevelId: Int)")
     if(curLevelId != aimLevelId) {
       // find current connecting shell
       @tailrec def findTheShell(curShell: Shell): Shell = {

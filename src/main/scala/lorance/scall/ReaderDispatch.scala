@@ -1,41 +1,45 @@
 package lorance.scall
 
 import java.nio.charset.Charset
-import org.slf4j.LoggerFactory
 import scala.collection.mutable.ArrayBuffer
 
 object DspState extends Enumeration {
-  val BeginSplit = Value(1, "BegSplit")
+  val BeginSplit = Value(1, "BeginSplit")
   val Load = Value(2, "Load")
   val EndSplit = Value(3, "EndSplit")
-  val HostLevelId = Value(4, "HostLevelId")
+  val EndHostLevel = Value(4, "HostLevelId")
   val EndProtocol = Value(5, "EndProtocol")
 }
 
-case class ProtoData(load: String, hostLevel: Int)
+case class ProtoData(load: String,
+                     endHostLevel: Int)
 
 /**
   * supply to output stream
   */
-class ReaderDispatch(load: ArrayBuffer[Byte], hostLevel: ArrayBuffer[Byte], var state: DspState.Value) {
-  private var debugIndex = 0
+class ReaderDispatch(load: ArrayBuffer[Byte] = ArrayBuffer.empty[Byte],
+                     endHostLevel: ArrayBuffer[Byte] = ArrayBuffer.empty[Byte],
+                     var state: DspState.Value = DspState.BeginSplit) {
+
   private var cmpIndex = 0
+
   private val spltBeginLength = MAGIC_SPLIT_BEGIN.length
   private val spltEndLength = MAGIC_SPLIT_END.length
 
   def this() {
-    this(ArrayBuffer.empty[Byte], ArrayBuffer.empty[Byte], DspState.BeginSplit)
+    this(
+      ArrayBuffer.empty[Byte],
+      ArrayBuffer.empty[Byte],
+      DspState.BeginSplit)
   }
 
   /**
-    * good lucky ~~~~
-    * @param bt
-    * @return
+    * @param bt current byte message from stream
+    * @return a completed ProtoData or not completed yet with None
     */
   def appendMsg(bt: Byte): Option[ProtoData] = {
     val item = bt
 
-    debugIndex += 1
     state match {
       case DspState.BeginSplit =>
         //is match
@@ -50,9 +54,7 @@ class ReaderDispatch(load: ArrayBuffer[Byte], hostLevel: ArrayBuffer[Byte], var 
           cmpIndex = 0
           if(MAGIC_SPLIT_BEGIN(cmpIndex) == item) {cmpIndex += 1}
         }
-
       case DspState.Load =>
-
         //save to load until bytes too large(NOT setting yet) when settings or achieve EndSplit
         if(MAGIC_SPLIT_END(cmpIndex) != item) {
           // ???
@@ -65,15 +67,16 @@ class ReaderDispatch(load: ArrayBuffer[Byte], hostLevel: ArrayBuffer[Byte], var 
           cmpIndex += 1
           //achieve EndSplit
           if(cmpIndex == spltEndLength) {
-            state = DspState.HostLevelId
+            state = DspState.EndHostLevel
           }
         }
-      case DspState.HostLevelId =>
+      case DspState.EndHostLevel =>
         if(item == `UTF8_\n_Byte`) {
           state = DspState.EndProtocol
         } else {
-          hostLevel.append(item)
+          endHostLevel.append(item)
         }
+
     }
 
     state match {
@@ -81,7 +84,7 @@ class ReaderDispatch(load: ArrayBuffer[Byte], hostLevel: ArrayBuffer[Byte], var 
         //data copy
         Some(ProtoData(
           new String(load.toArray, Charset.forName("UTF-8")),
-          new String(hostLevel.toArray, Charset.forName("UTF-8")).toInt
+          new String(endHostLevel.toArray, Charset.forName("UTF-8")).toInt
         ))
       case _ => None
     }

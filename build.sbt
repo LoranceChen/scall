@@ -12,6 +12,7 @@ libraryDependencies ++= Seq(
   "io.reactivex" %% "rxscala" % "0.26.5",
   "org.slf4j" % "slf4j-api" % "1.7.25",
   "ch.qos.logback" % "logback-classic" % "1.2.3" % Provided,
+  "junit" % "junit" % "4.12" % Test,
 
 )
 

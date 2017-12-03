@@ -17,7 +17,7 @@ class ScallInputStream(outputStream: ScallOutputStream)
   private var cmd: Array[Byte] = Array.emptyByteArray
   private var curIndex = 0
   private var closedMark = false
-  private var curResult: ProtoData = _
+  private var curResult: ParsedProto = _
   outputStream.outputObv.subscribe(curResult = _)
 
   val readCompleteObv = Subject[Unit]()
@@ -30,7 +30,7 @@ class ScallInputStream(outputStream: ScallOutputStream)
 
   val noRspLock = new Object
 
-  def setCommand(cmd: String): ProtoData = methodLock.synchronized {
+  def setCommand(cmd: String): ParsedProto = methodLock.synchronized {
     writeSemaphore.acquire()
     if(closedMark) {
       writeSemaphore.release()
