@@ -8,7 +8,7 @@ import org.slf4j.LoggerFactory
 class Terminal(auth: Auth) {
   implicit val config: Config = Config(10, 3, 2)
 
-  implicit var curLevelId = 0
+  var curLevelId = 0
 
   private implicit val logger = LoggerFactory.getLogger(this.getClass)
   private val jsch: JSchWrapper = new JSchWrapper(auth, config)
@@ -17,7 +17,7 @@ class Terminal(auth: Auth) {
   private def echoEnd = s"echo $$?;echo '$SPLIT_END_Str';echo '$curLevelId'"
   private def echoSSH = s"""$echoBegin;echo $$?;echo "$SPLIT_END_Str";echo "${curLevelId + 1}""""
 
-  val init = {
+  def init: Unit = {
     //setting charset
     var utf8CheckSuccess = false
 
@@ -40,10 +40,12 @@ class Terminal(auth: Auth) {
     }
 
     if (!utf8CheckSuccess) {
-      this.disconnect()
-      throw ShellSettingLangException
+      this.exit
+      throw TerminalSettingLangException("", curLevelId)
     }
   }
+
+  init
 
   /**
     * a command could result with a string and
@@ -52,21 +54,27 @@ class Terminal(auth: Auth) {
     *
     * NOTIC: refer regex: (?s) https://stackoverflow.com/questions/45625134/scala-regex-cant-match-r-n-in-a-giving-string-which-contains-multiple-r-n/45625835#45625835
     */
-  def exc(cmd: Cmd)(implicit hostLevel: Int = curLevelId): Either[Error, String] = {
+  def exc(cmd: Cmd): Either[Error, String] = {
     val newCmd = echoCmdStr(cmd.content)
-    val ParsedProto(result, code, rstLevelId) = jsch.scallInputStream.setCommand(newCmd)
 
-    assert(hostLevel == rstLevelId)
+    val ParsedProto(result, code, rstLevelId) = jsch.scallInputStream.setCommand(newCmd)
+    val errorMsg = jsch.scallErrorStream.flashErrorMsg
+
+    if(curLevelId != rstLevelId) {
+      curLevelId = rstLevelId
+      throw TerminalDisconnectException(errorMsg, result, rstLevelId)
+    }
     curLevelId = rstLevelId
 
-    val errorMsg = jsch.scallErrorStream.flashErrorMsg
-    if(code == 0) Right(result) else {
+    if(code == 0) {
+      Right(result)
+    } else {
       //check disconnect
       Left(Error(code, errorMsg))
     }
   }
 
-  def newShell(auth: Auth)(implicit hostLevel: Int = curLevelId + 1): Either[Error, String] = {
+  def newShell(auth: Auth): Either[Error, String] = {
 
     val cmd = auth.key match {
       case Password(password) =>
@@ -78,31 +86,41 @@ class Terminal(auth: Auth) {
     }
 
     val ParsedProto(result, code, rstLevelId) = jsch.scallInputStream.setCommand(cmd)
-
-    assert(rstLevelId == hostLevel)
-    curLevelId = rstLevelId
-
     val errorMsg = jsch.scallErrorStream.flashErrorMsg
 
-    if(code == 0) Right(result) else {
+    if((curLevelId + 1) != rstLevelId) {
+      curLevelId = rstLevelId
+      throw TerminalDisconnectException(errorMsg, result, rstLevelId)
+    }
+    curLevelId = rstLevelId
+
+    if(code == 0) {
+      init
+      Right(result)
+    } else {
       //check disconnect
       Left(Error(code, errorMsg))
     }
   }
 
-  def exit(implicit hostLevel: Int = curLevelId): Either[Error, String] = {
-    assert(curLevelId > 0)
+  def exit: Either[Error, String] = {
+    if(curLevelId == 0) {
+      disconnect()
+      Right("")
+    } else {
+      val ParsedProto(result, code, rstLevelId) = jsch.scallInputStream.setCommand(defStr2UTF8("exit"))
+      val errorMsg = jsch.scallErrorStream.flashErrorMsg
 
-    val ParsedProto(result, code, rstLevelId) = jsch.scallInputStream.setCommand(defStr2UTF8("exit"))
+      if ((curLevelId - 1) != rstLevelId) {
+        curLevelId = rstLevelId
+        throw TerminalDisconnectException(errorMsg, result, rstLevelId)
+      }
+      curLevelId = rstLevelId
 
-    assert(rstLevelId == hostLevel)
-    curLevelId = rstLevelId
-
-    val errorMsg = jsch.scallErrorStream.flashErrorMsg
-
-    if(code == 0) Right(result) else {
-      //check disconnect
-      Left(Error(code, errorMsg))
+      if (code == 0) Right(result) else {
+        //check disconnect
+        Left(Error(code, errorMsg))
+      }
     }
   }
 
@@ -116,6 +134,5 @@ class Terminal(auth: Auth) {
   private def echoCmdStr(cmd: String) = {
     defStr2UTF8(s"$echoBegin;$cmd;$echoEnd")
   }
-
 
 }

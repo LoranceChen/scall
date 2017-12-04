@@ -61,15 +61,15 @@ package object scall {
     println(cmdResult)
     cmdResult
   }
-
-  def loan[T](shell: Shell)(f: Shell => T) = {
-    try {
-      f(shell)
-    } catch {
-      case NonFatal(e) => throw e
-    } finally {
-      shell.disconnect()
-    }
-
-  }
+//
+//  def loan[T](shell: Shell)(f: Shell => T) = {
+//    try {
+//      f(shell)
+//    } catch {
+//      case NonFatal(e) => throw e
+//    } finally {
+//      shell.disconnect()
+//    }
+//
+//  }
 }

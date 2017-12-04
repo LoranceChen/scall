@@ -10,8 +10,7 @@ crossScalaVersions := Seq("2.12.4", "2.11.11")
 libraryDependencies ++= Seq(
   "com.jcraft" % "jsch" % "0.1.54",
   "io.reactivex" %% "rxscala" % "0.26.5",
-  "org.slf4j" % "slf4j-api" % "1.7.25",
-  "ch.qos.logback" % "logback-classic" % "1.2.3" % Provided,
+  "ch.qos.logback" % "logback-classic" % "1.2.3",
   "junit" % "junit" % "4.12" % Test,
 
 )

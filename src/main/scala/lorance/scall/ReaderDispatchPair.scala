@@ -79,18 +79,3 @@ class ReaderDispatchPair {
   }
 
 }
-
-object A extends App {
-  val e1 = DspState.BeginSplit
-  val e11 = DspState.Load
-  val e2 = DspState.Load
-  val e22 = DspState.Load
-
-  val rst = (e1, e11) match {
-    case (e2, e22) => "good"
-    case (e2, e22) => "good"
-    case _ => "bad"
-  }
-
-  rst
-}
