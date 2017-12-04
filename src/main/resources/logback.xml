@@ -71,4 +71,7 @@
         <!--<appender-ref ref="Print2Console" />-->
     <!--</logger>-->
 
+    <logger name="lorance.scall.Terminal" level="INFO">
+        <appender-ref ref="stdout" />
+    </logger>
 </configuration>

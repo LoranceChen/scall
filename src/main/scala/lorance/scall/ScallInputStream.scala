@@ -32,6 +32,10 @@ class ScallInputStream(outputStream: ScallOutputStream)
 
   def setCommand(cmd: String): ParsedProto = methodLock.synchronized {
     writeSemaphore.acquire()
+
+    //tell outputStream is waiting
+    outputStream.isWaitingResult = true
+
     if(closedMark) {
       writeSemaphore.release()
       throw StreamClosedException("Input Stream has been closed")
@@ -45,6 +49,9 @@ class ScallInputStream(outputStream: ScallOutputStream)
 
     //wait data form OutputStream
     writeLock.synchronized(writeLock.wait())
+
+    //tell outputStream not waiting
+    outputStream.isWaitingResult = false
     curResult
   }
 //

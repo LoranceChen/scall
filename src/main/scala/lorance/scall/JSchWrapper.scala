@@ -40,15 +40,14 @@ sealed class JSchWrapper(auth: Auth, config: Config) {
   session.connect(config.connectTimeout * 1000) // making a connection with timeout.
 
   //每10秒检查一次连接状况
-  new Thread(new Runnable(){
-    override def run() = {
+  val thread = new Thread(() => {
       while(session.isConnected) {
-        Thread.sleep(20 * 1000) //10s
+        Thread.sleep(15 * 1000) //15s
       }
-
       disconnectFuture.trySuccess(auth)
-    }
-  }).start()
+  })
+  thread.setDaemon(true)
+  thread.start()
 
   private val channel: Channel = session.openChannel("shell")
 

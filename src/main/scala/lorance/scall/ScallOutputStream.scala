@@ -17,16 +17,27 @@ class ScallOutputStream(writeLock: WriteLock) extends OutputStream {
   private val readerDispatch = new ReaderDispatchPair
   private val outputSub = Subject[ParsedProto]()
 
+  // no one waiting result
+  private val noReplySub = Subject[ParsedProto]()
+
+  var isWaitingResult = false
+
   val outputObv: Observable[ParsedProto] = outputSub
+  val noReplyObv: Observable[ParsedProto] = noReplySub
 
   override def write(b: Int): Unit = {
     logger.info(b.toChar.toString)
 
     readerDispatch.appendMsg(b.toByte).foreach(protoData => {
       val parsedProto = parseProtoData(protoData)
-      outputSub.onNext(parsedProto)
-      //      readerDispatch = new ReaderDispatch()
-      writeLock.synchronized(writeLock.notify())
+
+      if(isWaitingResult) {
+        outputSub.onNext(parsedProto)
+        writeLock.synchronized(writeLock.notify())
+      } else {
+        logger.warn("no_reply_proto: {}", protoData)
+        noReplySub.onNext(parsedProto)
+      }
     })
 
   }

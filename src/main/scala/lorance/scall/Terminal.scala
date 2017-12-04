@@ -1,6 +1,10 @@
 package lorance.scall
 
 import org.slf4j.LoggerFactory
+import rx.lang.scala.{Observable, Subject}
+import scala.concurrent.ExecutionContext.Implicits.global
+
+case class HostLevel(value: Int)
 
 /**
   *
@@ -10,14 +14,34 @@ class Terminal(auth: Auth) {
 
   var curLevelId = 0
 
-  private implicit val logger = LoggerFactory.getLogger(this.getClass)
+  private val logger = LoggerFactory.getLogger(this.getClass)
   private val jsch: JSchWrapper = new JSchWrapper(auth, config)
 
   private def echoBegin = s"echo '';echo '$SPLIT_BEGIN_Str'"
   private def echoEnd = s"echo $$?;echo '$SPLIT_END_Str';echo '$curLevelId'"
   private def echoSSH = s"""$echoBegin;echo $$?;echo "$SPLIT_END_Str";echo "${curLevelId + 1}""""
 
-  def init: Unit = {
+  case class DisconnectMsg(error: String, curHostLevel: Int)
+  private val disconnectSub = Subject[DisconnectMsg]()
+
+  //register disconnect event
+  jsch.onDisconnect.map{_ =>
+    //initial session disconnect
+    logger.info("initial_ssh_closed")
+    disconnectSub.onNext(DisconnectMsg("initial_ssh_closed", -1))
+    disconnectSub.onCompleted()
+  }
+
+  jsch.scallOutputStream.noReplyObv.subscribe(protoData => {
+    logger.warn(s"ssh_disconnected_to: ${protoData.hostLevel}")
+    curLevelId = protoData.hostLevel
+    disconnectSub.onNext(DisconnectMsg(protoData.data, protoData.hostLevel))
+  })
+
+  val disConnectStream: Observable[DisconnectMsg] = disconnectSub
+  disConnectStream.subscribe() //make sure stream will emit
+
+  def init(implicit expectHostLevel: HostLevel): Unit = {
     //setting charset
     var utf8CheckSuccess = false
 
@@ -40,12 +64,12 @@ class Terminal(auth: Auth) {
     }
 
     if (!utf8CheckSuccess) {
-      this.exit
+      this.exit(HostLevel(expectHostLevel.value - 1))
       throw TerminalSettingLangException("", curLevelId)
     }
   }
 
-  init
+  init(HostLevel(0))
 
   /**
     * a command could result with a string and
@@ -54,15 +78,22 @@ class Terminal(auth: Auth) {
     *
     * NOTIC: refer regex: (?s) https://stackoverflow.com/questions/45625134/scala-regex-cant-match-r-n-in-a-giving-string-which-contains-multiple-r-n/45625835#45625835
     */
-  def exc(cmd: Cmd): Either[Error, String] = {
+  def exc(cmd: Cmd)(implicit expectHostLevel: HostLevel): Either[Error, String] = {
     val newCmd = echoCmdStr(cmd.content)
 
-    val ParsedProto(result, code, rstLevelId) = jsch.scallInputStream.setCommand(newCmd)
+    val parsedProto = jsch.scallInputStream.setCommand(newCmd)
+    val ParsedProto(result, code, rstLevelId) = parsedProto
     val errorMsg = jsch.scallErrorStream.flashErrorMsg
 
     if(curLevelId != rstLevelId) {
       curLevelId = rstLevelId
-      throw TerminalDisconnectException(errorMsg, result, rstLevelId)
+      val ex = TerminalDisconnectException(errorMsg, result, rstLevelId)
+      logger.error("check_host_level_fail: ", ex)
+      throw ex
+    } else if(expectHostLevel.value != rstLevelId) {
+      val ex = TerminalHostLevelException(expectHostLevel.value, rstLevelId)
+      logger.error("check_host_level_fail: ", ex)
+      throw ex
     }
     curLevelId = rstLevelId
 
@@ -74,7 +105,7 @@ class Terminal(auth: Auth) {
     }
   }
 
-  def newShell(auth: Auth): Either[Error, String] = {
+  def newShell(auth: Auth)(implicit expectHostLevel: HostLevel): Either[Error, String] = {
 
     val cmd = auth.key match {
       case Password(password) =>
@@ -85,17 +116,24 @@ class Terminal(auth: Auth) {
         echoCmdStr(s"ssh -o ServerAliveInterval=${config.serverAliveInterval} -o ServerAliveCountMax=${config.serverAliveCountMax} -o StrictHostKeyChecking=no -o ConnectTimeout=${config.connectTimeout} -T ${auth.name}@${auth.host} -p${auth.port} '$echoSSH;/bin/bash'")
     }
 
-    val ParsedProto(result, code, rstLevelId) = jsch.scallInputStream.setCommand(cmd)
+    val parsedProto = jsch.scallInputStream.setCommand(cmd)
+    val ParsedProto(result, code, rstLevelId) = parsedProto
     val errorMsg = jsch.scallErrorStream.flashErrorMsg
 
     if((curLevelId + 1) != rstLevelId) {
       curLevelId = rstLevelId
-      throw TerminalDisconnectException(errorMsg, result, rstLevelId)
+      val ex = TerminalDisconnectException(errorMsg, result, rstLevelId)
+      logger.error("check_host_level_fail: ", ex)
+      throw ex
+    } else if(expectHostLevel.value != rstLevelId) {
+      val ex = TerminalHostLevelException(expectHostLevel.value, rstLevelId)
+      logger.error("check_host_level_fail: ", ex)
+      throw ex
     }
     curLevelId = rstLevelId
 
     if(code == 0) {
-      init
+      init(expectHostLevel)
       Right(result)
     } else {
       //check disconnect
@@ -103,17 +141,24 @@ class Terminal(auth: Auth) {
     }
   }
 
-  def exit: Either[Error, String] = {
-    if(curLevelId == 0) {
+  def exit(implicit expectHostLevel: HostLevel): Either[Error, String] = {
+    if(curLevelId <= 0) {
       disconnect()
       Right("")
     } else {
-      val ParsedProto(result, code, rstLevelId) = jsch.scallInputStream.setCommand(defStr2UTF8("exit"))
+      val parsedProto = jsch.scallInputStream.setCommand(defStr2UTF8("exit"))
+      val ParsedProto(result, code, rstLevelId) = parsedProto
       val errorMsg = jsch.scallErrorStream.flashErrorMsg
 
-      if ((curLevelId - 1) != rstLevelId) {
+      if(curLevelId != rstLevelId) {
         curLevelId = rstLevelId
-        throw TerminalDisconnectException(errorMsg, result, rstLevelId)
+        val ex = TerminalDisconnectException(errorMsg, result, rstLevelId)
+        logger.error("check_host_level_fail: ", ex)
+        throw ex
+      } else if(expectHostLevel.value != rstLevelId) {
+        val ex = TerminalHostLevelException(expectHostLevel.value, rstLevelId)
+        logger.error("check_host_level_fail: ", ex)
+        throw ex
       }
       curLevelId = rstLevelId
 
@@ -135,4 +180,18 @@ class Terminal(auth: Auth) {
     defStr2UTF8(s"$echoBegin;$cmd;$echoEnd")
   }
 
+  private def checkHostLevel(expectHostLevel: HostLevel, rstProtoData: ParsedProto, errorMsg: String) = {
+    val rstLevelId = rstProtoData.hostLevel
+    val result = rstProtoData.data
+    if((curLevelId + 1) != rstLevelId) {
+      curLevelId = rstLevelId
+      val ex = TerminalDisconnectException(errorMsg, result, rstLevelId)
+      logger.error("check_host_level_fail: ", ex)
+      throw ex
+    } else if(expectHostLevel.value != rstLevelId) {
+      val ex = TerminalHostLevelException(expectHostLevel.value, rstLevelId)
+      logger.error("check_host_level_fail: ", ex)
+      throw ex
+    }
+  }
 }
