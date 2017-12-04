@@ -40,11 +40,14 @@ sealed class JSchWrapper(auth: Auth, config: Config) {
   session.connect(config.connectTimeout * 1000) // making a connection with timeout.
 
   //每10秒检查一次连接状况
-  val thread = new Thread(() => {
+  val thread = new Thread(new Runnable(){
+    override def run() = {
       while(session.isConnected) {
         Thread.sleep(15 * 1000) //15s
       }
+
       disconnectFuture.trySuccess(auth)
+    }
   })
   thread.setDaemon(true)
   thread.start()
