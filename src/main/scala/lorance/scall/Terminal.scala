@@ -41,7 +41,7 @@ class Terminal(auth: Auth) {
   val disConnectStream: Observable[DisconnectMsg] = disconnectSub
   disConnectStream.subscribe() //make sure stream will emit
 
-  def init(implicit expectHostLevel: HostLevel): Unit = {
+  def init(implicit expectHostLevelAfterCmd: HostLevel): Unit = {
     //setting charset
     var utf8CheckSuccess = false
 
@@ -64,7 +64,7 @@ class Terminal(auth: Auth) {
     }
 
     if (!utf8CheckSuccess) {
-      this.exit(HostLevel(expectHostLevel.value - 1))
+      this.exit(HostLevel(expectHostLevelAfterCmd.value - 1))
       throw TerminalSettingLangException("", curLevelId)
     }
   }
@@ -78,7 +78,7 @@ class Terminal(auth: Auth) {
     *
     * NOTIC: refer regex: (?s) https://stackoverflow.com/questions/45625134/scala-regex-cant-match-r-n-in-a-giving-string-which-contains-multiple-r-n/45625835#45625835
     */
-  def exc(cmd: Cmd)(implicit expectHostLevel: HostLevel): Either[Error, String] = {
+  def exc(cmd: Cmd)(implicit expectHostLevelAfterCmd: HostLevel): Either[Error, String] = {
     val newCmd = echoCmdStr(cmd.content)
 
     val parsedProto = jsch.scallInputStream.setCommand(newCmd)
@@ -90,8 +90,8 @@ class Terminal(auth: Auth) {
       val ex = TerminalDisconnectException(errorMsg, result, rstLevelId)
       logger.error("check_host_level_fail: ", ex)
       throw ex
-    } else if(expectHostLevel.value != rstLevelId) {
-      val ex = TerminalHostLevelException(expectHostLevel.value, rstLevelId)
+    } else if(expectHostLevelAfterCmd.value != rstLevelId) {
+      val ex = TerminalHostLevelException(expectHostLevelAfterCmd.value, rstLevelId)
       logger.error("check_host_level_fail: ", ex)
       throw ex
     }
@@ -105,15 +105,15 @@ class Terminal(auth: Auth) {
     }
   }
 
-  def newShell(auth: Auth)(implicit expectHostLevel: HostLevel): Either[Error, String] = {
+  def newShell(auth: Auth)(implicit expectHostLevelAfterCmd: HostLevel): Either[Error, String] = {
 
     val cmd = auth.key match {
       case Password(password) =>
-        echoCmdStr(s"sshpass -p '$password' ssh -o ServerAliveInterval=${config.serverAliveInterval} -o ServerAliveCountMax=${config.serverAliveCountMax} -o StrictHostKeyChecking=no -o ConnectTimeout=${config.connectTimeout} -T ${auth.name}@${auth.host} -p${auth.port} '$echoSSH;/bin/bash'")
+        echoCmdStr(s"sshpass -p '$password' ssh -o ServerAliveInterval=${config.serverAliveInterval} -o ServerAliveCountMax=${config.serverAliveCountMax} -o StrictHostKeyChecking=no -o ConnectTimeout=${config.connectTimeout} -T ${auth.name.map(_ + "@").getOrElse("")}${auth.host} -p${auth.port} '$echoSSH;/bin/bash'")
       case IdentityFile(filePath) =>
-        echoCmdStr(s"ssh -o ServerAliveInterval=${config.serverAliveInterval} -o ServerAliveCountMax=${config.serverAliveCountMax} -o StrictHostKeyChecking=no -o ConnectTimeout=${config.connectTimeout} -i '$filePath' -T ${auth.name}@${auth.host} -p${auth.port} '$echoSSH;/bin/bash'")
+        echoCmdStr(s"ssh -o ServerAliveInterval=${config.serverAliveInterval} -o ServerAliveCountMax=${config.serverAliveCountMax} -o StrictHostKeyChecking=no -o ConnectTimeout=${config.connectTimeout} -i '$filePath' -T ${auth.name.map(_ + "@").getOrElse("")}${auth.host} -p${auth.port} '$echoSSH;/bin/bash'")
       case NonKey() =>
-        echoCmdStr(s"ssh -o ServerAliveInterval=${config.serverAliveInterval} -o ServerAliveCountMax=${config.serverAliveCountMax} -o StrictHostKeyChecking=no -o ConnectTimeout=${config.connectTimeout} -T ${auth.name}@${auth.host} -p${auth.port} '$echoSSH;/bin/bash'")
+        echoCmdStr(s"ssh -o ServerAliveInterval=${config.serverAliveInterval} -o ServerAliveCountMax=${config.serverAliveCountMax} -o StrictHostKeyChecking=no -o ConnectTimeout=${config.connectTimeout} -T ${auth.name.map(_ + "@").getOrElse("")}${auth.host} -p${auth.port} '$echoSSH;/bin/bash'")
     }
 
     val parsedProto = jsch.scallInputStream.setCommand(cmd)
@@ -125,15 +125,15 @@ class Terminal(auth: Auth) {
       val ex = TerminalDisconnectException(errorMsg, result, rstLevelId)
       logger.error("check_host_level_fail: ", ex)
       throw ex
-    } else if(expectHostLevel.value != rstLevelId) {
-      val ex = TerminalHostLevelException(expectHostLevel.value, rstLevelId)
+    } else if(expectHostLevelAfterCmd.value != rstLevelId) {
+      val ex = TerminalHostLevelException(expectHostLevelAfterCmd.value, rstLevelId)
       logger.error("check_host_level_fail: ", ex)
       throw ex
     }
     curLevelId = rstLevelId
 
     if(code == 0) {
-      init(expectHostLevel)
+      init(expectHostLevelAfterCmd)
       Right(result)
     } else {
       //check disconnect
@@ -141,7 +141,7 @@ class Terminal(auth: Auth) {
     }
   }
 
-  def exit(implicit expectHostLevel: HostLevel): Either[Error, String] = {
+  def exit(implicit expectHostLevelAfterCmd: HostLevel): Either[Error, String] = {
     if(curLevelId <= 0) {
       disconnect()
       Right("")
@@ -150,13 +150,13 @@ class Terminal(auth: Auth) {
       val ParsedProto(result, code, rstLevelId) = parsedProto
       val errorMsg = jsch.scallErrorStream.flashErrorMsg
 
-      if(curLevelId != rstLevelId) {
+      if(curLevelId - 1 != rstLevelId) {
         curLevelId = rstLevelId
         val ex = TerminalDisconnectException(errorMsg, result, rstLevelId)
         logger.error("check_host_level_fail: ", ex)
         throw ex
-      } else if(expectHostLevel.value != rstLevelId) {
-        val ex = TerminalHostLevelException(expectHostLevel.value, rstLevelId)
+      } else if(expectHostLevelAfterCmd.value != rstLevelId) {
+        val ex = TerminalHostLevelException(expectHostLevelAfterCmd.value, rstLevelId)
         logger.error("check_host_level_fail: ", ex)
         throw ex
       }
@@ -180,18 +180,4 @@ class Terminal(auth: Auth) {
     defStr2UTF8(s"$echoBegin;$cmd;$echoEnd")
   }
 
-  private def checkHostLevel(expectHostLevel: HostLevel, rstProtoData: ParsedProto, errorMsg: String) = {
-    val rstLevelId = rstProtoData.hostLevel
-    val result = rstProtoData.data
-    if((curLevelId + 1) != rstLevelId) {
-      curLevelId = rstLevelId
-      val ex = TerminalDisconnectException(errorMsg, result, rstLevelId)
-      logger.error("check_host_level_fail: ", ex)
-      throw ex
-    } else if(expectHostLevel.value != rstLevelId) {
-      val ex = TerminalHostLevelException(expectHostLevel.value, rstLevelId)
-      logger.error("check_host_level_fail: ", ex)
-      throw ex
-    }
-  }
 }

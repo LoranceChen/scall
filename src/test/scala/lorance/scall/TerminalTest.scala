@@ -13,19 +13,19 @@ class TerminalTest {
     val currentDir = System.getProperty("user.dir")
     println("current dir - " + currentDir)
 
-    val terminal = new Terminal(Auth("localhost", "lorancechen", 22, Password(" ")))
+    val terminal = new Terminal(Auth("localhost", Some("lorancechen"), 22, Password(" ")))
     val ls = terminal.exc(Cmd("lsss"))(HostLevel(0))
     println("lsss - " + ls)
 
-    val newShell = terminal.newShell(Auth("xxx.xxx.xxx.xxx", "xxx", 22, Password("xxxx")))(HostLevel(1))
+    val newShell = terminal.newShell(Auth("xxx.xxx.xxx.xxx", Some("xxx"), 22, Password("xxxx")))(HostLevel(1))
     println("newShell - " + newShell)
     val ls2 = terminal.exc(Cmd("ls"))(HostLevel(1))
     println("ls - " + ls2)
 
-    val exit = terminal.exit(HostLevel(1))
+    val exit = terminal.exit(HostLevel(0))
     println("exit - " + exit)
 
-    val ls3 = terminal.exc(Cmd("ls"))(HostLevel(1))
+    val ls3 = terminal.exc(Cmd("ls"))(HostLevel(0))
     println("ls - " + ls3)
 
     terminal.disconnect()
@@ -35,9 +35,9 @@ class TerminalTest {
 
   @Test
   def disconnectHasCmdRunning(): Unit = {
-    val terminal = new Terminal(Auth("localhost", "lorancechen", 22, Password(" ")))
+    val terminal = new Terminal(Auth("localhost", Some("lorancechen"), 22, Password(" ")))
 
-    val newShell = terminal.newShell(Auth("xxx.xxx.xxx.xxx", "xxx", 22, Password("xxxx")))(HostLevel(1))
+    val newShell = terminal.newShell(Auth("xxx.xxx.xxx.xxx", Some("xxx"), 22, Password("xxxx")))(HostLevel(1))
     println("newShell - " + newShell)
 
     terminal.exc(Cmd("cd ./test"))(HostLevel(1))
@@ -48,9 +48,9 @@ class TerminalTest {
 
   @Test
   def disconnectNotCmdRunning(): Unit = {
-    val terminal = new Terminal(Auth("localhost", "lorancechen", 22, Password(" ")))
+    val terminal = new Terminal(Auth("localhost", Some("lorancechen"), 22, Password(" ")))
 
-    val newShell = terminal.newShell(Auth("xxx.xxx.xxx.xxx", "xxx", 22, Password("xxxx")))(HostLevel(1))
+    val newShell = terminal.newShell(Auth("xxx.xxx.xxx.xxx", Some("xxx"), 22, Password("xxxx")))(HostLevel(1))
     println("newShell - " + newShell)
 
     val pwd = terminal.exc(Cmd("pwd"))(HostLevel(1))

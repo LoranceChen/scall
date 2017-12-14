@@ -5,7 +5,7 @@ case class Password(value: String) extends Key
 case class IdentityFile(path: String) extends Key
 case class NonKey() extends Key
 
-case class Auth(host: String, name: String, port: Int, key: Key)
+case class Auth(host: String, name: Option[String], port: Int, key: Key)
 
 case class Cmd(content: String)
 
