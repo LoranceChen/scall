@@ -10,12 +10,12 @@ class TerminalTest {
 
   @Test
   def cmd(): Unit = {
-    val currentDir = System.getProperty("user.dir")
-    println("current dir - " + currentDir)
+    val terminal = new Terminal(Auth("localhost", Some("xxx"), 22, Password("xxx")))
+    val lsss = terminal.exc(Cmd("lsss"))(HostLevel(0))
+    println("lsss - " + lsss)
 
-    val terminal = new Terminal(Auth("localhost", Some("lorancechen"), 22, Password(" ")))
-    val ls = terminal.exc(Cmd("lsss"))(HostLevel(0))
-    println("lsss - " + ls)
+    val ls = terminal.exc(Cmd("ls"))(HostLevel(0))
+    println("ls - " + ls)
 
     val newShell = terminal.newShell(Auth("xxx.xxx.xxx.xxx", Some("xxx"), 22, Password("xxxx")))(HostLevel(1))
     println("newShell - " + newShell)
@@ -29,13 +29,11 @@ class TerminalTest {
     println("ls - " + ls3)
 
     terminal.disconnect()
-
-    Thread.currentThread().join()
   }
 
   @Test
   def disconnectHasCmdRunning(): Unit = {
-    val terminal = new Terminal(Auth("localhost", Some("lorancechen"), 22, Password(" ")))
+    val terminal = new Terminal(Auth("localhost", Some("xxx"), 22, Password("xx")))
 
     val newShell = terminal.newShell(Auth("xxx.xxx.xxx.xxx", Some("xxx"), 22, Password("xxxx")))(HostLevel(1))
     println("newShell - " + newShell)
@@ -48,7 +46,7 @@ class TerminalTest {
 
   @Test
   def disconnectNotCmdRunning(): Unit = {
-    val terminal = new Terminal(Auth("localhost", Some("lorancechen"), 22, Password(" ")))
+    val terminal = new Terminal(Auth("localhost", Some("xxx"), 22, Password("xx")))
 
     val newShell = terminal.newShell(Auth("xxx.xxx.xxx.xxx", Some("xxx"), 22, Password("xxxx")))(HostLevel(1))
     println("newShell - " + newShell)
