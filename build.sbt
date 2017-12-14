@@ -5,7 +5,7 @@ version := "0.5.1"
 organization := "com.scalachan"
 
 scalaVersion := "2.12.4"
-crossScalaVersions := Seq("2.12.4", "2.11.12")
+crossScalaVersions := Seq("2.12.4", "2.11.12", "2.10.7")
 
 libraryDependencies ++= Seq(
   "com.jcraft" % "jsch" % "0.1.54",
@@ -41,8 +41,6 @@ lazy val root = (project in file(".")).
   settings(
     resolvers ++= Seq(
       "main" at "http://repo1.maven.org/maven2",
-
-      //  "Sonatype Nexus" at "http://localhost:7070/nexus/repository/maven-releases/"//"https://oss.sonatype.org/content/repositories/snapshots"
       "Sonatype Nexus" at "https://oss.sonatype.org/content/repositories/snapshots"
     ),
     publishArtifact in (Compile, packageDoc) := true,
