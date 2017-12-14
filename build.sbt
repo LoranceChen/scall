@@ -1,11 +1,11 @@
 name := "scall"
 
-version := "0.5.0"
+version := "0.5.1"
 
 organization := "com.scalachan"
 
 scalaVersion := "2.12.4"
-crossScalaVersions := Seq("2.12.4", "2.11.11")
+crossScalaVersions := Seq("2.12.4", "2.11.12")
 
 libraryDependencies ++= Seq(
   "com.jcraft" % "jsch" % "0.1.54",
