@@ -112,7 +112,7 @@ class Terminal(auth: Auth) {
         echoCmdStr(s"sshpass -p '$password' ssh -o ServerAliveInterval=${config.serverAliveInterval} -o ServerAliveCountMax=${config.serverAliveCountMax} -o StrictHostKeyChecking=no -o ConnectTimeout=${config.connectTimeout} -T ${auth.name.map(_ + "@").getOrElse("")}${auth.host} -p${auth.port} '$echoSSH;/bin/bash'")
       case IdentityFile(filePath) =>
         echoCmdStr(s"ssh -o ServerAliveInterval=${config.serverAliveInterval} -o ServerAliveCountMax=${config.serverAliveCountMax} -o StrictHostKeyChecking=no -o ConnectTimeout=${config.connectTimeout} -i '$filePath' -T ${auth.name.map(_ + "@").getOrElse("")}${auth.host} -p${auth.port} '$echoSSH;/bin/bash'")
-      case NonKey() =>
+      case NonKey =>
         echoCmdStr(s"ssh -o ServerAliveInterval=${config.serverAliveInterval} -o ServerAliveCountMax=${config.serverAliveCountMax} -o StrictHostKeyChecking=no -o ConnectTimeout=${config.connectTimeout} -T ${auth.name.map(_ + "@").getOrElse("")}${auth.host} -p${auth.port} '$echoSSH;/bin/bash'")
     }
 

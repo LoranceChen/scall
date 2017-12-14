@@ -3,7 +3,7 @@ package lorance.scall
 trait Key
 case class Password(value: String) extends Key
 case class IdentityFile(path: String) extends Key
-case class NonKey() extends Key
+case object NonKey extends Key
 
 case class Auth(host: String, name: Option[String], port: Int, key: Key)
 
