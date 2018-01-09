@@ -31,7 +31,7 @@ class SessionTerminal(auth: Auth, config: Config) {
   private var execChannel: ChannelExec = _
   private var input: InputStream = _
   private var errInput: InputStream = _
-  private var buffer = new ArrayBuffer[Byte]()
+  private var buffer = new ArrayBuffer[Byte](126)
   private var errBuffer = new ArrayBuffer[Byte]()
   private var exitStatus: Int = 0
 
@@ -86,8 +86,9 @@ class SessionTerminal(auth: Auth, config: Config) {
 
   }
 
-  val initStreamThread = new Thread(() => {
-    def foo() = {
+  object SessionStreamThread extends Thread {
+    setDaemon(true)
+    override def run(): Unit = {
       try {
         while (true) {
           //a switch
@@ -127,10 +128,9 @@ class SessionTerminal(auth: Auth, config: Config) {
           logger.error("SessionTerminalStreamThread-fail: ", e)
       }
     }
-    foo()
-  })
-  initStreamThread.setDaemon(true)
-  initStreamThread.start()
+
+  }
+  SessionStreamThread.start()
 
   //init
 //  case class UTF8CheckFailException(code: Int, error: String) extends RuntimeException(s"""code: $code, error: $error""")
