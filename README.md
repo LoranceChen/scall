@@ -8,8 +8,8 @@ Shell is worse to organize command together. Scall enhance the shell command by 
 - JSch
 
 ## Example
-[TerminalTest.scala](https://github.com/LoranceChen/scall/blob/master/src/test/scala/lorance/scall/TerminalTest.scala)
-[SessionTerminalTest.scala](https://github.com/LoranceChen/scall/blob/master/src/test/scala/lorance/scall/SessionTerminalTest.scala)
+- [TerminalTest.scala](https://github.com/LoranceChen/scall/blob/master/src/test/scala/lorance/scall/TerminalTest.scala)
+- [SessionTerminalTest.scala](https://github.com/LoranceChen/scall/blob/master/src/test/scala/lorance/scall/SessionTerminalTest.scala)
 
 
 ## Updates
