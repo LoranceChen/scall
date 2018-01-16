@@ -20,7 +20,7 @@ class ScallInputStream(outputStream: ScallOutputStream)
   private var curResult: ParsedProto = _
   outputStream.outputObv.subscribe(curResult = _)
 
-  val readCompleteObv = Subject[Unit]()
+//  val readCompleteObv = Subject[Unit]()
   val lockRead = new Object()
 
   /**
@@ -116,7 +116,7 @@ class ScallInputStream(outputStream: ScallOutputStream)
       rst = -1
       readied = false
       curIndex = 0
-      readCompleteObv.onNext()
+//      readCompleteObv.onNext()
       writeSemaphore.release()
     }
 
