@@ -13,7 +13,7 @@ libraryDependencies ++= Seq(
   "org.slf4j" % "slf4j-api" % "1.7.25",
   "ch.qos.logback" % "logback-classic" % "1.2.3" % Test,
   "junit" % "junit" % "4.12" % Test,
-
+  "com.hierynomus" % "sshj" % "0.23.0",
 )
 
 sonatypeProfileName := "com.scalachan"
