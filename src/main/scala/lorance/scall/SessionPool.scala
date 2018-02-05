@@ -7,6 +7,7 @@ import net.schmizz.sshj.common.IOUtils
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
+import net.schmizz.sshj.transport.verification.PromiscuousVerifier
 
 /**
   *
@@ -24,6 +25,7 @@ class SessionPool(auth: Auth,  config: Config, poolSize: Int = Runtime.getRuntim
   )
   private val ssh = new SSHClient
   ssh.loadKnownHosts()
+  ssh.addHostKeyVerifier(new PromiscuousVerifier)
 
   ssh.setConnectTimeout(config.connectTimeout * 1000)
   ssh.setTimeout(config.serverAliveCountMax * config.serverAliveInterval * 1000)
@@ -41,7 +43,7 @@ class SessionPool(auth: Auth,  config: Config, poolSize: Int = Runtime.getRuntim
   def execAsync(cmd: Cmd): Future[Either[Error, String]] = {
     val cmdRstFur = Future{
       sessionCountLimiter.acquire()
-      println("do-exec")
+      logger.debug("do-exec")
       val session = ssh.startSession()
       session -> session.exec(cmd.content)
     }(threadPoolExc)
