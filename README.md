@@ -16,6 +16,8 @@ Shell is worse to organize command together. Scall enhance the shell command by 
 
 ## Updates
 - version 0.7.0
+  - fix only accept some keys with sshj SessionPool
+- version 0.7.0
   - support concurrent session execute pool by SSHJ
 - version 0.6.1
   - support jsch channel in `SessionTerminal` class
