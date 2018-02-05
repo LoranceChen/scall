@@ -2,7 +2,7 @@
 Shell is worse to organize command together. Scall enhance the shell command by make it organizable in Scala environment.
 
 ## Usage
-`libraryDependencies += "com.scalachan" %% "scall" % "0.7.0"`
+`libraryDependencies += "com.scalachan" %% "scall" % "0.7.1"`
 
 ## Dependency
 - JSch
@@ -15,7 +15,7 @@ Shell is worse to organize command together. Scall enhance the shell command by 
 
 
 ## Updates
-- version 0.7.0
+- version 0.7.1
   - fix only accept some keys with sshj SessionPool
 - version 0.7.0
   - support concurrent session execute pool by SSHJ
