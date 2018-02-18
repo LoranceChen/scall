@@ -12,7 +12,9 @@ import net.schmizz.sshj.transport.verification.PromiscuousVerifier
 /**
   *
   */
-class SessionPool(auth: Auth,  config: Config, poolSize: Int = Runtime.getRuntime.availableProcessors, maxSessions: Int = 10) {
+class SessionPool(auth: Auth,  config: Config,
+                  poolSize: Int = Runtime.getRuntime.availableProcessors + 2, //support running u=on one core cpu
+                  maxSessions: Int = 10) {
   private val logger = LoggerFactory.getLogger(getClass)
 
   private val sessionCountLimiter = new Semaphore(maxSessions / 2)
@@ -31,6 +33,16 @@ class SessionPool(auth: Auth,  config: Config, poolSize: Int = Runtime.getRuntim
   ssh.setTimeout(config.serverAliveCountMax * config.serverAliveInterval * 1000)
   ssh.connect(auth.host)
 
+//  val connectionCheckThread = new Thread(new Runnable(){
+//      override def run() = {
+//        while(ssh.isConnected) {
+//          Thread.sleep(15 * 1000) //15s
+//        }
+//
+//        disconnectFuture.trySuccess(auth)
+//      }
+//    }
+//  )
   auth.key match {
     case Password(pwd) =>
       ssh.authPassword(auth.name.getOrElse(System.getProperty("user.name")), pwd)
