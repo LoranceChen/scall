@@ -17,6 +17,9 @@ class SessionTerminal(auth: Auth, config: Config) {
 
   private val session: Session = jsch.getSession(auth.name.orNull, auth.host, auth.port)
   session.setConfig("StrictHostKeyChecking", "no")
+  session.setServerAliveInterval(config.serverAliveInterval * 1000)
+  session.setServerAliveCountMax(2)
+
   auth.key match {
     case Password(value) =>
       session.setPassword(value)
