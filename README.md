@@ -16,9 +16,9 @@ Shell is worse to organize command together. Scall enhance the shell command by 
 
 ## Updates
 - version 0.7.3
-  - append heart beat fot SessionPool
+  - append heart beat for SessionPool
 - version 0.7.2
-  - append heart beat fot SessionTerminal
+  - append heart beat for SessionTerminal
 - version 0.7.1
   - fix only accept some keys with sshj SessionPool
 - version 0.7.0
