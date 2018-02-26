@@ -15,6 +15,8 @@ Shell is worse to organize command together. Scall enhance the shell command by 
 
 
 ## Updates
+- version 0.7.3
+  - append heart beat fot SessionPool
 - version 0.7.2
   - append heart beat fot SessionTerminal
 - version 0.7.1

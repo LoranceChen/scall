@@ -33,6 +33,9 @@ class SessionPool(auth: Auth,  config: Config,
   ssh.setTimeout(config.serverAliveCountMax * config.serverAliveInterval * 1000)
   ssh.connect(auth.host)
 
+  //set heart beat
+  ssh.getConnection.getKeepAlive.setKeepAliveInterval(15)
+
 //  val connectionCheckThread = new Thread(new Runnable(){
 //      override def run() = {
 //        while(ssh.isConnected) {
